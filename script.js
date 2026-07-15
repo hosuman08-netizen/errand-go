@@ -1,4 +1,26 @@
 // p7 Errand — Legion prototype with p6 Lung Surprise Eye + Da Vinci
+
+// ── 완료 보너스 확률표 (단일 진실원천: 표시되는 확률 = 실제 롤 확률 100% 일치) ──
+// prob는 합이 정확히 1.00. 이 배열이 곧 공개 문구·코드 양쪽의 근거.
+const BONUS_TABLE = [
+  { coins: 0, prob: 0.50 },
+  { coins: 2, prob: 0.30 },
+  { coins: 5, prob: 0.15 },
+  { coins: 10, prob: 0.05 },
+];
+// 공개 라벨을 코드에서 직접 생성 → 손으로 쓴 숫자와 어긋날 수 없음
+const BONUS_ODDS_LABEL = BONUS_TABLE
+  .map(t => `+${t.coins} ${(t.prob * 100).toFixed(0)}%`)
+  .join(' · ');
+function rollBonus() {
+  let r = Math.random();
+  for (const t of BONUS_TABLE) {
+    if (r < t.prob) return t.coins;
+    r -= t.prob;
+  }
+  return BONUS_TABLE[BONUS_TABLE.length - 1].coins; // 부동소수 안전 폴백
+}
+
 let userLocation = null;
 let tasks = JSON.parse(localStorage.getItem('p7_tasks') || '[]');
 let coins = parseInt(localStorage.getItem('p7_coins') || '42');
@@ -42,6 +64,8 @@ function distanceKm(lat1, lon1, lat2, lon2) {
 }
 
 function renderTasks() {
+  const oddsEl = document.getElementById('bonus-odds');
+  if (oddsEl) oddsEl.textContent = `완료 보너스 확률: ${BONUS_ODDS_LABEL}`;
   const container = document.getElementById('task-list');
   if (!container) return;
   container.innerHTML = '';
@@ -180,16 +204,14 @@ function acceptTask(idx) {
   if (!task) return;
   
   let earn = Math.floor(task.cost * 0.7) + 3;
-  // Birth 2: p1 gacha luck on completion (full-cheat variable from p6 surprise + scout)
-  const gachaBase = (task.surprise || 0.3) + (task.scoutEcho || 0);
-  const gachaRoll = Math.random() * (1.6 + gachaBase * 1.1); // near-miss variance
-  const luck = Math.floor(gachaRoll * 4);
+  // Completion bonus roll — transparent tiered odds (표시=코드 100% 일치, prominent shield)
+  const luck = rollBonus();
   earn += luck;
-  
+
   coins += earn;
   updateCoinsUI();
-  
-  const review = prompt(`Task 완료! p1 Gacha ${luck > 0 ? '+'+luck+' luck' : ''}\n"${task.desc}"\n배운 점?`, '무거웠지만 끝. 다음 voice 더 정확히.');
+
+  const review = prompt(`Task 완료! 완료 보너스 ${luck > 0 ? '+'+luck+' coins' : '+0'}\n(확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n배운 점?`, '무거웠지만 끝. 다음 voice 더 정확히.');
   if (review) {
     notebook.unshift({
       task: task.desc,
