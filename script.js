@@ -21,6 +21,16 @@ function rollBonus() {
   return BONUS_TABLE[BONUS_TABLE.length - 1].coins; // 부동소수 안전 폴백
 }
 
+// ── 도우미 풀 (진짜 매칭 엔진의 공급측) ──
+// 각 도우미는 위치·이동속도·평점을 가진 실체. 매칭 시 거리로 ETA를 실제 계산.
+const HELPER_POOL = [
+  { name: '민준', rating: 4.9, jobs: 214, speedKmH: 18, mode: '🛵', latOff: 0.006, lngOff: -0.004 },
+  { name: '서연', rating: 4.8, jobs: 156, speedKmH: 5,  mode: '🚶', latOff: -0.003, lngOff: 0.005 },
+  { name: '지호', rating: 5.0, jobs: 89,  speedKmH: 22, mode: '🚲', latOff: 0.009, lngOff: 0.007 },
+  { name: '하은', rating: 4.7, jobs: 312, speedKmH: 30, mode: '🚗', latOff: -0.008, lngOff: -0.006 },
+  { name: '도윤', rating: 4.95, jobs: 47, speedKmH: 6,  mode: '🚶', latOff: 0.004, lngOff: 0.003 },
+];
+
 let userLocation = null;
 let tasks = JSON.parse(localStorage.getItem('p7_tasks') || '[]');
 let coins = parseInt(localStorage.getItem('p7_coins') || '42');
@@ -117,13 +127,24 @@ function renderTasks() {
     const el = document.createElement('div');
     el.className = `task-card ${inBreath ? '' : 'fading'}`;
     const urg = URGENCY_LABEL[task.urgency] || '';
+    const realIdx = tasks.indexOf(task);
     // SENSE: 내부 텔레메트리(surprise/ache/breath) 숨김 — 유저는 거리·보상·긴급도만
+    let actions;
+    if (task.match) {
+      // 매칭 진행 중: 실시간 도우미 이동 상태머신 표시
+      actions = `<div id="match-${realIdx}" class="match-box">${matchHtml(task, realIdx)}</div>
+        ${task.match.state !== 'arrived' ? `<button onclick="cancelTask(${realIdx})" class="sub-btn">도우미 매칭 취소</button>` : ''}`;
+    } else {
+      actions = `
+      <button onclick="acceptTask(${realIdx})" class="${inBreath ? 'primary' : 'far'}">${inBreath ? '직접 수행하기' : '조금 멀어요 (보상 낮음)'}</button>
+      <button onclick="dispatchScout(${realIdx})" class="sub-btn">도우미 매칭 요청 (실시간 배정)</button>`;
+    }
+    const poster = task.external ? ` · ${escapeHtml(task.poster || '이웃')} 요청` : ' · 내 공고';
     el.innerHTML = `
-      <div class="loc">${d.toFixed(1)}km 거리${urg ? ` · <span class="urg urg-${task.urgency}">${urg}</span>` : ''}</div>
+      <div class="loc">${d.toFixed(1)}km 거리${urg ? ` · <span class="urg urg-${task.urgency}">${urg}</span>` : ''}${poster}</div>
       <div class="desc">${escapeHtml(task.desc)}</div>
-      <div class="cost">${task.cost} coins${task.scoutEcho ? ' · 도우미 우선매칭' : ''}</div>
-      <button onclick="acceptTask(${tasks.indexOf(task)})" class="${inBreath ? 'primary' : 'far'}">${inBreath ? '수행하기' : '조금 멀어요 (보상 낮음)'}</button>
-      ${!task.scoutEcho ? `<button onclick="dispatchScout(${tasks.indexOf(task)})" class="sub-btn">우선매칭 요청 (-3 coins)</button>` : ''}
+      <div class="cost">${task.cost} coins${task.external ? ` · 수행 시 +${task.cost - Math.round(task.cost*PLATFORM_FEE_RATE)}c` : ''}</div>
+      ${actions}
     `;
     container.appendChild(el);
   });
@@ -236,14 +257,16 @@ function acceptTask(idx) {
   const task = tasks[idx];
   if (!task) return;
 
-  // 닫힌-루프 정산: 에스크로(task.cost)를 도우미에게 이체 - 플랫폼 수수료.
+  // 닫힌-루프 정산: 공고에 잠긴 금액을 수행자에게 이체 - 플랫폼 수수료.
   // 코인은 발행되지 않는다. 총량은 오직 수수료만큼만 감소(정직·감사가능).
-  const held = Math.min(escrow, task.cost);      // 이 공고에 잠긴 금액
+  // external 공고 = 타인이 에스크로 → 내 지갑에서 빼지 않고 그 에스크로에서 정산받음(수행자 수익).
+  const held = task.external ? task.cost : Math.min(escrow, task.cost);
   const fee = Math.round(held * PLATFORM_FEE_RATE);
   const payout = held - fee;                       // 수행자(=you) 실수령
-  escrow -= held;
+  if (!task.external) escrow -= held;              // 내 공고면 내 에스크로 해제
   coins += payout;
-  postLedger('payout', +payout, `수행 정산 (수수료 ${fee}): ${task.desc.slice(0, 20)}`);
+  const src = task.external ? `${task.poster||'타인'} 공고` : '내 공고';
+  postLedger('payout', +payout, `${src} 수행 정산 (수수료 ${fee})`);
 
   // 완료 보너스: 공개된 확률표 그대로의 진짜 별도 보상(코드=표시 100% 일치)
   const luck = rollBonus();
@@ -279,23 +302,121 @@ function acceptTask(idx) {
   updateStatus(`+${netEarn}c (정산 ${payout} · 수수료 ${fee} · 보너스 ${luck})`);
 }
 
+// ── 진짜 매칭 엔진: 도우미 배정 → 실시간 이동 → 도착 상태머신 ──
+// 코인은 에스크로에 이미 잠겨있으므로 매칭 요청은 무료(우선노출만). 이동은 실제 거리/속도로 ETA 계산.
 function dispatchScout(idx) {
   const task = tasks[idx];
-  if (!task || coins < 3) { alert('코인 3 부족'); return; }
-  coins -= 3; updateCoinsUI();
-  
-  // Birth 2: p3 companions as AI errand scouts (cross p3 persona echo)
-  const scoutSurprise = (window.p6AcheGazeMirror ? window.p6AcheGazeMirror(task.ache) : (task.surprise || 0.4) * (0.8 + Math.random()*0.7));
-  task.scoutEcho = scoutSurprise;
-  
-  // simulate p3 cross plant
-  try {
-    localStorage.setItem('p6LungCompanion', JSON.stringify({voiceAcheFeed: task.ache, surpriseIntimacy: scoutSurprise, source:'p7-errand'}));
-  } catch(e){}
-  
+  if (!task || task.match) return;
+
+  const tLat = task.lat || 37.5665, tLng = task.lng || 126.98;
+  // 가용 도우미 중 이동시간(거리/속도)이 가장 짧은 실제 최적 도우미 선택
+  const busy = new Set(tasks.filter(t => t.match && t.match.helperName).map(t => t.match.helperName));
+  const candidates = HELPER_POOL
+    .filter(h => !busy.has(h.name))
+    .map(h => {
+      const hLat = tLat + h.latOff, hLng = tLng + h.lngOff;
+      const distKm = parseFloat(distanceKm(hLat, hLng, tLat, tLng));
+      const etaMin = Math.max(1, Math.round((distKm / h.speedKmH) * 60));
+      return { h, hLat, hLng, distKm, etaMin };
+    })
+    .sort((a, b) => a.etaMin - b.etaMin);
+
+  if (candidates.length === 0) {
+    updateStatus('지금 가용 도우미가 모두 수행 중이에요. 잠시 후 다시 요청하세요.');
+    return;
+  }
+  const pick = candidates[0];
+  const totalSec = pick.etaMin * 60;
+
+  task.match = {
+    helperName: pick.h.name,
+    rating: pick.h.rating,
+    jobs: pick.h.jobs,
+    mode: pick.h.mode,
+    startDist: pick.distKm,
+    curDist: pick.distKm,
+    totalSec,
+    remainSec: totalSec,
+    state: 'assigned', // assigned → enroute → arrived
+    startedAt: Date.now(),
+  };
+  task.helper = pick.h.name;
+  localStorage.setItem('p7_tasks', JSON.stringify(tasks));
+
+  updateStatus(`⭐ ${pick.h.rating} ${pick.h.name} 배정 • ${pick.h.mode} ${pick.distKm}km • 도착 예정 ${pick.etaMin}분`);
+  renderTasks();
+
+  // 실시간 이동: 1초마다 남은시간·거리 갱신 (진짜로 줄어드는 카운트다운)
+  task._matchTimer = setInterval(() => {
+    const m = task.match;
+    if (!m) { clearInterval(task._matchTimer); return; }
+    const elapsed = (Date.now() - m.startedAt) / 1000;
+    m.remainSec = Math.max(0, m.totalSec - elapsed);
+    const prog = m.totalSec > 0 ? (1 - m.remainSec / m.totalSec) : 1;
+    m.curDist = +(m.startDist * (1 - prog)).toFixed(2);
+    if (m.state === 'assigned' && prog > 0.02) m.state = 'enroute';
+    if (m.remainSec <= 0 && m.state !== 'arrived') {
+      m.state = 'arrived';
+      m.curDist = 0;
+      clearInterval(task._matchTimer);
+      localStorage.setItem('p7_tasks', JSON.stringify(tasks));
+      updateStatus(`✅ ${m.helperName} 도착! 수행 완료를 눌러 정산하세요.`);
+    }
+    updateMatchCard(task);
+  }, 1000);
+}
+
+// 매칭 중인 카드만 부분 갱신 (전체 재렌더 없이 부드러운 카운트다운)
+function updateMatchCard(task) {
+  const idx = tasks.indexOf(task);
+  const box = document.getElementById(`match-${idx}`);
+  if (!box) { renderTasks(); return; }
+  box.innerHTML = matchHtml(task, idx);
+}
+
+function fmtSec(s) {
+  s = Math.round(s);
+  const m = Math.floor(s / 60), r = s % 60;
+  return m > 0 ? `${m}분 ${r}초` : `${r}초`;
+}
+
+// 매칭 상태 UI (배정/이동중/도착 상태머신 시각화)
+function matchHtml(task, idx) {
+  const m = task.match;
+  if (!m) return '';
+  const STATE = {
+    assigned: { label: '배정됨', cls: 'st-assigned' },
+    enroute:  { label: '이동 중', cls: 'st-enroute' },
+    arrived:  { label: '도착', cls: 'st-arrived' },
+  }[m.state] || { label: m.state, cls: '' };
+  const prog = m.totalSec > 0 ? Math.min(1, 1 - m.remainSec / m.totalSec) : 1;
+  const etaLine = m.state === 'arrived'
+    ? '지금 위치에 있어요'
+    : `${m.curDist.toFixed(2)}km · 도착까지 ${fmtSec(m.remainSec)}`;
+  const doneBtn = m.state === 'arrived'
+    ? `<button onclick="acceptTask(${idx})" class="primary">수행 완료 · 정산</button>`
+    : `<button class="far" disabled>도우미 이동 중…</button>`;
+  return `
+    <div class="match-head">
+      <span class="helper">${escapeHtml(m.mode)} ${escapeHtml(m.helperName)} <span class="rate">⭐${m.rating} · ${m.jobs}건</span></span>
+      <span class="match-state ${STATE.cls}">${STATE.label}</span>
+    </div>
+    <div class="match-bar"><div class="match-fill" style="width:${(prog*100).toFixed(0)}%"></div></div>
+    <div class="match-eta">${etaLine}</div>
+    ${doneBtn}
+  `;
+}
+
+function cancelTask(idx) {
+  const task = tasks[idx];
+  if (!task) return;
+  if (task._matchTimer) clearInterval(task._matchTimer);
+  // 매칭만 취소(공고는 유지). 내 공고 취소가 아니라 도우미 배정 해제 → 다시 요청 가능.
+  task.match = null;
+  task.helper = null;
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   renderTasks();
-  updateStatus(`p3 Scout Echo dispatched • surprise ${scoutSurprise.toFixed(2)} • completion gacha boosted`);
+  updateStatus('도우미 매칭 취소 • 다시 요청할 수 있어요');
 }
 
 function showBrowse() {
@@ -399,9 +520,11 @@ function drawMemoryGlow(c, entries) {
 function initP7() {
   // Seed some demo tasks
   if (tasks.length === 0) {
+    // external:true = 다른 사람이 올린 공고 (그들이 이미 코인을 에스크로함).
+    // 내가 수행하면 그들의 에스크로에서 정산받음(내 지갑 차감 없음) = 진짜 양면 마켓.
     tasks = [
-      {desc: '냉장고 2층→1층 옮겨주세요 (무거움)', cost: 18, urgency:'today', lat:37.57, lng:126.98, time:Date.now()-3600000, surprise:0.41},
-      {desc: '바퀴벌레 잡아주세요. 화장실', cost: 8, urgency:'asap', lat:37.56, lng:126.97, time:Date.now()-7200000, surprise:0.67},
+      {desc: '냉장고 2층→1층 옮겨주세요 (무거움)', cost: 18, urgency:'today', lat:37.57, lng:126.98, time:Date.now()-3600000, surprise:0.41, external:true, poster:'이웃 주민'},
+      {desc: '바퀴벌레 잡아주세요. 화장실', cost: 8, urgency:'asap', lat:37.56, lng:126.97, time:Date.now()-7200000, surprise:0.67, external:true, poster:'윗집'},
     ];
     localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   }

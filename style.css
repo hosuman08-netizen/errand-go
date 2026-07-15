@@ -58,6 +58,23 @@ button:active { transform: scale(0.97); }
 .task-card .sub-btn { margin-top: 8px; font-size: 11px; color: var(--dim); border-color: transparent; }
 .task-card.empty { color: var(--dim); text-align: center; line-height: 1.6; }
 .task-card.empty span { font-size: 12px; opacity: 0.7; }
+
+/* 실시간 매칭 상태머신 UI */
+.match-box {
+  margin-top: 12px; padding: 10px; background: #100e0a;
+  border: 1px solid #3a3124; border-radius: 10px;
+}
+.match-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.match-head .helper { font-size: 13px; font-weight: 600; color: var(--text); }
+.match-head .rate { font-size: 11px; font-weight: 400; color: var(--dim); }
+.match-state { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.match-state.st-assigned { color: var(--gold); background: rgba(197,164,110,0.12); }
+.match-state.st-enroute { color: #6ea8c9; background: rgba(110,168,201,0.14); }
+.match-state.st-arrived { color: #7fb98a; background: rgba(127,185,138,0.16); }
+.match-bar { height: 4px; background: #221d16; border-radius: 999px; overflow: hidden; margin-bottom: 6px; }
+.match-fill { height: 100%; background: linear-gradient(90deg, #b9975a, var(--gold)); transition: width 1s linear; }
+.match-eta { font-size: 12px; color: var(--dim); margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+.match-box button { margin-top: 0; }
 /* SENSE 60/30/10: 긴급도만 유일한 경고색(red) 액센트 — 나머지는 뉴트럴 */
 .urg { font-weight: 600; }
 .urg-asap { color: #e5714f; }
