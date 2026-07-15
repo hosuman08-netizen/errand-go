@@ -15,10 +15,21 @@ h1 { font-size: 32px; margin: 4px 0; letter-spacing: -1px; }
 .tagline { color: var(--dim); font-size: 13px; }
 .disclaimer { font-size: 9px; opacity: 0.4; letter-spacing: 1px; }
 
-.nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
-button { background: var(--card); color: var(--gold); border: 1px solid #3a3124; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 16px 0; }
+button {
+  background: var(--card); color: var(--gold); border: 1px solid #3a3124;
+  padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out;
+}
+/* SENSE 60/30/10: nav 보조는 조용히, 주인공(주변 심부름) 하나만 대비 */
+.nav button { background: transparent; border-color: transparent; color: var(--dim); padding: 8px 10px; }
+.nav button:hover { color: var(--gold); }
+.nav .nav-primary {
+  background: var(--card); border: 1px solid var(--gold); color: var(--gold);
+  font-weight: 600; padding: 8px 16px;
+}
 button.primary { background: var(--gold); color: #0a0806; font-weight: 600; }
-button:active { transform: scale(0.98); }
+button:active { transform: scale(0.97); }
 
 .section { margin-bottom: 24px; }
 .hidden { display: none; }
@@ -38,14 +49,23 @@ button:active { transform: scale(0.98); }
   padding: 12px;
   position: relative;
 }
-.task-card.sfu { filter: blur(0.3px); } /* sfumato */
-.task-card.fading { opacity: 0.75; border-color: #4a3f2f; }
-.task-card .loc { font-size: 11px; color: var(--dim); }
-.task-card .cost { color: var(--gold); font-weight: 600; }
-.task-card button { margin-top: 8px; width: 100%; }
+.task-card.fading { opacity: 0.72; border-color: #332b20; }
+.task-card .loc { font-size: 11px; color: var(--dim); margin-bottom: 6px; }
+.task-card .desc { font-size: 15px; line-height: 1.4; margin-bottom: 8px; }
+.task-card .cost { color: var(--gold); font-weight: 600; font-size: 15px; }
+.task-card button { margin-top: 12px; width: 100%; }
+.task-card button.far { color: var(--dim); border-color: #332b20; }
+.task-card .sub-btn { margin-top: 8px; font-size: 11px; color: var(--dim); border-color: transparent; }
+.task-card.empty { color: var(--dim); text-align: center; line-height: 1.6; }
+.task-card.empty span { font-size: 12px; opacity: 0.7; }
+/* SENSE 60/30/10: 긴급도만 유일한 경고색(red) 액센트 — 나머지는 뉴트럴 */
+.urg { font-weight: 600; }
+.urg-asap { color: #e5714f; }
+.urg-today { color: var(--gold); }
+.urg-normal { color: var(--dim); }
 
-.balance { font-size: 42px; font-weight: 800; color: var(--gold); text-align: center; }
-.fomo { text-align: center; color: #f87171; font-size: 11px; margin: 4px 0; }
+.balance { font-size: 44px; font-weight: 800; color: var(--gold); text-align: center; line-height: 1.1; }
+.fomo { text-align: center; color: var(--dim); font-size: 11px; margin: 8px 0; }
 
 .form label { display: block; font-size: 12px; margin: 10px 0 4px; color: var(--dim); }
 .form input, .form textarea, .form select {
@@ -57,6 +77,3 @@ button:active { transform: scale(0.98); }
 .notebook-entry {
   background: var(--card); border: 1px solid #3a3124; padding: 10px; border-radius: 8px; margin: 8px 0; font-size: 13px;
 }
-
-/* p6 cross: surprise eye hint */
-.surprise-eye { position: absolute; top: 8px; right: 8px; font-size: 10px; color: #f5d76e; opacity: 0.7; }

@@ -82,27 +82,35 @@ function renderTasks() {
   }).slice(0, 6);
 
   if (nearby.length === 0) {
-    container.innerHTML = '<div class="task-card">근처 심부름 숨 쉬는 중... (Ache-Breath 반경 축소됨)</div>';
+    container.innerHTML = '<div class="task-card empty">주변에 열린 심부름이 없어요.<br><span>공고를 올리면 근처 도우미에게 바로 보여요.</span></div>';
     return;
   }
+
+  const URGENCY_LABEL = { asap: '지금 당장', today: '오늘 내', normal: '여유 있음' };
 
   nearby.forEach((task) => {
     const d = userLocation && task.lat ? parseFloat(distanceKm(userLocation.lat, userLocation.lng, task.lat, task.lng)) : 0;
     const rad = task._currentRadius || 8;
     const inBreath = d <= rad;
-    const earnMul = inBreath ? 1 : 0.6;
     const el = document.createElement('div');
-    el.className = `task-card ${task.surprise > 0.5 ? 'sfu' : ''} ${inBreath ? '' : 'fading'}`;
+    el.className = `task-card ${inBreath ? '' : 'fading'}`;
+    const urg = URGENCY_LABEL[task.urgency] || '';
+    // SENSE: 내부 텔레메트리(surprise/ache/breath) 숨김 — 유저는 거리·보상·긴급도만
     el.innerHTML = `
-      <div class="loc">📍 ${d.toFixed(1)}km / breath ${rad.toFixed(1)}km • ${task.urgency || ''}</div>
-      <div>${task.desc}</div>
-      <div class="cost">💰 ${task.cost} coins ${task.scoutEcho ? '· scout+' : ''}</div>
-      ${task.surprise ? `<div class="surprise-eye">👁 ${task.surprise.toFixed(2)} ${task.ache ? 'ache' + task.ache.toFixed(1) : ''}</div>` : ''}
-      <button onclick="acceptTask(${tasks.indexOf(task)})" ${inBreath ? '' : 'style="opacity:0.6"'}>${inBreath ? '수행하기 (코인 획득)' : '반경 밖 — FOMO (earn ↓)'}</button>
-      ${!task.scoutEcho ? `<button onclick="dispatchScout(${tasks.indexOf(task)})" style="font-size:10px;margin-top:4px">🧿 p3 Scout Echo 보내기 (-3c)</button>` : ''}
+      <div class="loc">${d.toFixed(1)}km 거리${urg ? ` · <span class="urg urg-${task.urgency}">${urg}</span>` : ''}</div>
+      <div class="desc">${escapeHtml(task.desc)}</div>
+      <div class="cost">${task.cost} coins${task.scoutEcho ? ' · 도우미 우선매칭' : ''}</div>
+      <button onclick="acceptTask(${tasks.indexOf(task)})" class="${inBreath ? 'primary' : 'far'}">${inBreath ? '수행하기' : '조금 멀어요 (보상 낮음)'}</button>
+      ${!task.scoutEcho ? `<button onclick="dispatchScout(${tasks.indexOf(task)})" class="sub-btn">우선매칭 요청 (-3 coins)</button>` : ''}
     `;
     container.appendChild(el);
   });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 function showPost() {
