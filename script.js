@@ -25,11 +25,33 @@ let userLocation = null;
 let tasks = JSON.parse(localStorage.getItem('p7_tasks') || '[]');
 let coins = parseInt(localStorage.getItem('p7_coins') || '42');
 let notebook = JSON.parse(localStorage.getItem('p7_notebook') || '[]');
+// 진짜 닫힌-루프 경제: 코인은 발행되지 않고 이동만 한다.
+//  - escrow: 공고 등록 시 코인이 잠긴다(사라지지 않음, 지갑→에스크로).
+//  - 완료: 에스크로가 도우미에게 이체 - 플랫폼 수수료. 코인 총량은 수수료만큼만 감소(정직).
+//  - 취소/미매칭: 에스크로 전액 환불.
+let escrow = parseInt(localStorage.getItem('p7_escrow') || '0');
+let ledger = JSON.parse(localStorage.getItem('p7_ledger') || '[]');
+const PLATFORM_FEE_RATE = 0.15; // 15% 플랫폼 수수료(공개·정직) — 유일한 코인 소각원
+
+function saveEconomy() {
+  localStorage.setItem('p7_coins', coins);
+  localStorage.setItem('p7_escrow', escrow);
+  localStorage.setItem('p7_ledger', JSON.stringify(ledger.slice(0, 60)));
+}
+
+// 원자적 원장 기입: 모든 코인 이동은 여기를 통과한다(감사 가능·정직)
+function postLedger(kind, delta, note) {
+  ledger.unshift({ kind, delta, balance: coins, escrow, note: note || '', time: Date.now() });
+}
 
 function updateCoinsUI() {
   const el = document.getElementById('coin-balance');
   if (el) el.textContent = coins;
-  localStorage.setItem('p7_coins', coins);
+  const escEl = document.getElementById('escrow-balance');
+  if (escEl) escEl.textContent = escrow;
+  const escRow = document.getElementById('escrow-row');
+  if (escRow) escRow.style.display = escrow > 0 ? '' : 'none';
+  saveEconomy();
 }
 
 function updateStatus(msg) {
@@ -191,7 +213,10 @@ function postTask() {
     breathRadius: 9.5 - (ache * 5.5) // Birth 1: initial Ache-Breath radius (km)
   };
   
+  // 닫힌-루프: 지갑 → 에스크로 (코인 사라지지 않음, 잠김)
   coins -= cost;
+  escrow += cost;
+  postLedger('escrow', -cost, `공고 에스크로: ${desc.slice(0, 20)}`);
   updateCoinsUI();
   tasks.unshift(newTask);
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
@@ -210,36 +235,48 @@ function postTask() {
 function acceptTask(idx) {
   const task = tasks[idx];
   if (!task) return;
-  
-  let earn = Math.floor(task.cost * 0.7) + 3;
-  // Completion bonus roll — transparent tiered odds (표시=코드 100% 일치, prominent shield)
-  const luck = rollBonus();
-  earn += luck;
 
-  coins += earn;
+  // 닫힌-루프 정산: 에스크로(task.cost)를 도우미에게 이체 - 플랫폼 수수료.
+  // 코인은 발행되지 않는다. 총량은 오직 수수료만큼만 감소(정직·감사가능).
+  const held = Math.min(escrow, task.cost);      // 이 공고에 잠긴 금액
+  const fee = Math.round(held * PLATFORM_FEE_RATE);
+  const payout = held - fee;                       // 수행자(=you) 실수령
+  escrow -= held;
+  coins += payout;
+  postLedger('payout', +payout, `수행 정산 (수수료 ${fee}): ${task.desc.slice(0, 20)}`);
+
+  // 완료 보너스: 공개된 확률표 그대로의 진짜 별도 보상(코드=표시 100% 일치)
+  const luck = rollBonus();
+  if (luck > 0) { coins += luck; postLedger('bonus', +luck, `완료 보너스 룰`); }
+
+  const netEarn = payout + luck;
   updateCoinsUI();
 
-  const review = prompt(`Task 완료! 완료 보너스 ${luck > 0 ? '+'+luck+' coins' : '+0'}\n(확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n배운 점?`, '무거웠지만 끝. 다음 voice 더 정확히.');
+  const feeLine = `정산 ${payout}c (수수료 ${fee}c 공제)`;
+  const bonusLine = luck > 0 ? ` + 완료보너스 +${luck}c` : ' + 보너스 +0';
+  const review = prompt(`Task 완료!\n${feeLine}${bonusLine}\n(보너스 확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n배운 점?`, '무거웠지만 끝. 다음 voice 더 정확히.');
   if (review) {
     notebook.unshift({
       task: task.desc,
-      earn,
+      earn: netEarn,
+      payout, fee,
       review,
       surprise: task.surprise || 0,
       ache: task.ache || 0,
       scout: task.scoutEcho,
       gacha: luck,
+      helper: task.helper || null,
       time: Date.now()
     });
     localStorage.setItem('p7_notebook', JSON.stringify(notebook));
-    // plant to legion lung cross
     try { localStorage.setItem('legion_distributed_notebook', JSON.stringify({surprise: task.surprise, ache: task.ache, ts: Date.now()})); } catch(e){}
   }
-  
+
+  if (task._matchTimer) clearInterval(task._matchTimer);
   tasks.splice(idx, 1);
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   renderTasks();
-  updateStatus(`+${earn} coins (gacha ${luck}) • Notebook + Lung spore`);
+  updateStatus(`+${netEarn}c (정산 ${payout} · 수수료 ${fee} · 보너스 ${luck})`);
 }
 
 function dispatchScout(idx) {
@@ -272,6 +309,31 @@ function showCoins() {
   hideAll();
   document.getElementById('coins').classList.remove('hidden');
   updateCoinsUI();
+  renderLedger();
+}
+
+function renderLedger() {
+  const el = document.getElementById('ledger-list');
+  if (!el) return;
+  el.innerHTML = '';
+  if (ledger.length === 0) {
+    el.innerHTML = '<div class="ledger-empty">아직 거래 없음. 공고를 올리면 에스크로 기록이 남아요.</div>';
+    return;
+  }
+  const KIND = { escrow: '에스크로', payout: '정산', bonus: '보너스', refund: '환불', charge: '충전' };
+  ledger.slice(0, 12).forEach(l => {
+    const row = document.createElement('div');
+    row.className = 'ledger-row';
+    const sign = l.delta >= 0 ? '+' : '';
+    const cls = l.delta >= 0 ? 'up' : 'down';
+    const t = new Date(l.time);
+    const hm = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    row.innerHTML = `<span class="lk">${KIND[l.kind] || l.kind}</span>
+      <span class="ln">${escapeHtml(l.note || '')}</span>
+      <span class="lv ${cls}">${sign}${l.delta}c</span>
+      <span class="lt">${hm}</span>`;
+    el.appendChild(row);
+  });
 }
 
 function chargeCoins() {
@@ -285,7 +347,9 @@ function chargeCoins() {
   coins += 50;
   charges[today] = (charges[today] || 0) + 1;
   localStorage.setItem('p7_charges', JSON.stringify(charges));
+  postLedger('charge', +50, '코인 충전 (virtual credit)');
   updateCoinsUI();
+  renderLedger();
   updateStatus('50 coins 충전 완료 • virtual credit');
 }
 
