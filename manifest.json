@@ -1,0 +1,12 @@
+{
+  "name": "Errand — 생활심부름",
+  "short_name": "Errand",
+  "description": "위치 기반 생활 심부름. p6 Voice + Legion.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0806",
+  "theme_color": "#c5a46e",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"}
+  ]
+}
