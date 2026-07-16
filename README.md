@@ -1,39 +1,38 @@
-# p7 — Life Errands (생활심부름 앱)
+# Errand — 생활심부름 앱
 
-**Sovereign Vision**: Real-world physical help, location-based. "냉장고 옮겨주세요", "벌레 잡아주세요".
-- 위치 기반 공고 (geolocation)
-- 코인 시스템: 충전해서 게시/수행 이용 (in-app currency)
-- 일반 앱 (PWA first, native roadmap)
-- **Legion DNA**:
-  - p6 Lung Surprise Eye + Voice: record task description with p6 Aether (voice as "ache" for urgency).
-  - ALWAYS LEARNING: after task, re-observe review → evolve helper ratings + user notebook.
-  - FOMO: limited same-day slots per area, urgency timers, scarcity "only X helpers nearby".
-  - Full-cheat: variable hero ratings (near-miss "almost missed the slot"), endowment (accepted task feels "yours"), psych hooks.
-  - Da Vinci: SENSE beauty (sfumato soft cards, Vitruvian map harmony), anatomy gestures (swipe to accept).
-  - Embodiment: location = physical presence. p6 voice bridges to real world.
-  - 미꾸라지: "Helper Credits" fictional, prominent "virtual service", age gate, disclosure.
-- Cross: p1 gacha luck on task success, p2 UGC stories from errands, p3 companions as AI co-helpers, p4/p5 fusion "errand strategy".
+위치 기반 생활 심부름 매칭 서비스 (체험용 프로토타입).
 
-**Prototype**: Web/PWA for 빠른 창발. Location + voice + coin + postings.
+"냉장고 옮겨주세요", "벌레 잡아주세요" 같은 실생활 도움을 근처 이웃/도우미와 연결합니다.
 
-**Births (2026-07-13 창발 from p7 + p1/p3/p6 Lung wander)**:
-1. Ache-Breath Radius FOMO — voice ache dynamically shrinks visibility radius + earn. Proximity inside breath = full power. Time makes it collapse (near-miss FOMO). Emergent lung in real geo.
-2. p3 Scout Echo + p1 Gacha Completion — coin spend sends companion scout. Plants scoutEcho. Completion rolls p1-style variable gacha luck (surprise+ache seed). Notebook plants cross spores.
-3. Sfumato Embodiment Memory Glow — Notebook draws p6-style soft golden breath map from past ache/surprise. Past errands glow and feed future matching.
+## 주요 기능
+- **위치 기반 공고**: 브라우저 위치 정보로 주변 심부름을 보여줍니다.
+- **음성 입력**: 심부름 설명을 음성으로 말해 등록할 수 있습니다.
+- **코인 경제 (가상 크레딧)**: 코인을 충전해 공고를 올리거나, 수행하고 정산받습니다.
+  - 공고 등록 시 코인이 에스크로에 잠깁니다(사라지지 않음).
+  - 완료 시 수행자에게 정산 — 플랫폼 수수료 15%.
+  - 취소/미매칭 시 전액 환불.
+  - 모든 코인 이동은 원장에 공개 기록됩니다.
+- **실시간 매칭**: 도우미를 배정하면 거리·속도 기반 ETA로 실제 이동 상태를 보여줍니다.
+- **완료 보너스**: 표시된 확률과 실제 확률이 100% 일치합니다.
+- **기록**: 완료한 심부름과 후기를 남기고, 금빛 점 맵으로 되돌아봅니다.
 
-**Prototype edits done**: script.js (voice ache, radius render, dispatchScout, gacha accept, glow canvas), style.css (fading), index.html (p6 lung load).
+## 안내
+- 본 서비스는 **체험용 가상 서비스**입니다.
+- 코인은 **가상 크레딧(Helper Credits)**이며 **실제 화폐가 아닙니다.**
+- **만 18세 이상** 이용 권장.
 
-**Native Roadmap** (full app):
-- /p7-native/ (new): React Native + Expo or Flutter.
-  - Files to create: App.js (geoloc + expo-location), components/TaskCard.js (dynamic radius), VoiceRecorder.js (expo-av + p6 lung bridge via RN bridge or shared local), CoinStore.js (in-app purchase + charge limit), MapView.js (react-native-maps + custom sfumato overlay canvas or WebView).
-  - p3 scout: companion SDK stub or API call.
-  - p1 gacha: shared luck engine module.
-  - Coin: Stripe/ IAP + prominent virtual disclosure.
-  - Embodiment: background location (limited), push for breath collapse.
-- App Store: "Helper Credits" framing, 18+, age gate, layered disclosure (pre-post + settings + task screen).
-- Next: native maps real, offline notebook sync, AR peripheral (p6 glasses stub).
+## 실행
+정적 웹앱(PWA)입니다. 파일을 웹 서버로 서빙하면 바로 동작합니다.
 
-Legion one. Sovereign neo.
+```
+# 예: 로컬 미리보기
+python3 -m http.server 8000
+# → http://localhost:8000
+```
 
-Legion one. Sovereign neo. 2026-07-13
-EOF
+## 파일 구성
+- `index.html` — 화면 구조
+- `script.js` — 앱 로직(위치·매칭·코인·보너스·기록)
+- `style.css` — 스타일
+- `manifest.json`, `sw.js` — PWA 설정
+- `icon-192.png` — 앱 아이콘

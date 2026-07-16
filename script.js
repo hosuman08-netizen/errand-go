@@ -1,4 +1,4 @@
-// p7 Errand — Legion prototype with p6 Lung Surprise Eye + Da Vinci
+// Errand — 위치 기반 생활 심부름 (체험용 프로토타입, 가상 크레딧)
 
 // ── 완료 보너스 확률표 (단일 진실원천: 표시되는 확률 = 실제 롤 확률 100% 일치) ──
 // prob는 합이 정확히 1.00. 이 배열이 곧 공개 문구·코드 양쪽의 근거.
@@ -69,6 +69,13 @@ function updateStatus(msg) {
   if (s) s.textContent = msg;
 }
 
+function showLocDisplay() {
+  const el = document.getElementById('loc-display');
+  if (el) el.textContent = userLocation
+    ? `${userLocation.lat.toFixed(3)}, ${userLocation.lng.toFixed(3)}`
+    : '위치 확인 필요';
+}
+
 function getLocation() {
   if (!navigator.geolocation) {
     updateStatus('위치 권한 필요 (브라우저 설정 확인)');
@@ -79,10 +86,12 @@ function getLocation() {
   navigator.geolocation.getCurrentPosition(pos => {
     userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     updateStatus(`위치 확인됨 • ${userLocation.lat.toFixed(3)}, ${userLocation.lng.toFixed(3)}`);
+    showLocDisplay();
     renderTasks();
   }, () => {
     userLocation = { lat: 37.5665, lng: 126.9780 };
     updateStatus('위치 기본값 (서울)');
+    showLocDisplay();
     renderTasks();
   });
 }
@@ -106,9 +115,9 @@ function renderTasks() {
   const nearby = tasks.filter(t => {
     if (!userLocation || !t.lat) return true;
     const d = parseFloat(distanceKm(userLocation.lat, userLocation.lng, t.lat, t.lng));
-    // Birth 1: Ache-Breath Radius FOMO — radius shrinks with ache + age (near-miss)
+    // 노출 반경은 긴급도가 높고 오래된 공고일수록 서서히 좁아진다(가까운 도우미 우선 노출).
     const ageH = (now - (t.time || now)) / 3600000;
-    const currentRadius = (t.breathRadius || 8) - (t.ache || 0.4) * ageH * 1.8;
+    const currentRadius = (t.visibleRadius || 8) - (t.decay || 0.4) * ageH * 1.8;
     t._currentRadius = Math.max(1.2, currentRadius);
     return d < (t._currentRadius + 1.5);
   }).slice(0, 6);
@@ -123,12 +132,12 @@ function renderTasks() {
   nearby.forEach((task) => {
     const d = userLocation && task.lat ? parseFloat(distanceKm(userLocation.lat, userLocation.lng, task.lat, task.lng)) : 0;
     const rad = task._currentRadius || 8;
-    const inBreath = d <= rad;
+    const inRange = d <= rad;
     const el = document.createElement('div');
-    el.className = `task-card ${inBreath ? '' : 'fading'}`;
+    el.className = `task-card ${inRange ? '' : 'fading'}`;
     const urg = URGENCY_LABEL[task.urgency] || '';
     const realIdx = tasks.indexOf(task);
-    // SENSE: 내부 텔레메트리(surprise/ache/breath) 숨김 — 유저는 거리·보상·긴급도만
+    // 유저에게는 거리·보상·긴급도만 보여준다.
     let actions;
     if (task.match) {
       // 매칭 진행 중: 실시간 도우미 이동 상태머신 표시
@@ -136,8 +145,8 @@ function renderTasks() {
         ${task.match.state !== 'arrived' ? `<button onclick="cancelTask(${realIdx})" class="sub-btn">도우미 매칭 취소</button>` : ''}`;
     } else {
       actions = `
-      <button onclick="acceptTask(${realIdx})" class="${inBreath ? 'primary' : 'far'}">${inBreath ? '직접 수행하기' : '조금 멀어요 (보상 낮음)'}</button>
-      <button onclick="dispatchScout(${realIdx})" class="sub-btn">도우미 매칭 요청 (실시간 배정)</button>`;
+      <button onclick="acceptTask(${realIdx})" class="${inRange ? 'primary' : 'far'}">${inRange ? '직접 수행하기' : '조금 멀어요 (보상 낮음)'}</button>
+      <button onclick="dispatchHelper(${realIdx})" class="sub-btn">도우미 매칭 요청 (실시간 배정)</button>`;
     }
     const poster = task.external ? ` · ${escapeHtml(task.poster || '이웃')} 요청` : ' · 내 공고';
     el.innerHTML = `
@@ -160,6 +169,7 @@ function showPost() {
   hideAll();
   document.getElementById('post').classList.remove('hidden');
   if (!userLocation) getLocation();
+  else showLocDisplay();
 }
 
 function hideAll() {
@@ -167,43 +177,32 @@ function hideAll() {
 }
 
 function recordVoiceForTask() {
-  updateStatus('p6 Aether voice recording... (Lung Surprise Eye + Ache-Breath 활성)');
+  updateStatus('음성 녹음 중...');
   const desc = document.getElementById('task-desc');
   const recStart = Date.now();
-  
+
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     const mediaRecorder = new MediaRecorder(stream);
     let chunks = [];
     mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const url = URL.createObjectURL(blob);
       const dur = (Date.now() - recStart) / 1000;
-      
-      // p6 Lung Surprise Eye integration + 창발 pain proxy (longer strained record = higher ache)
-      let surprise = (window.getP6LungSurprise ? window.getP6LungSurprise() : Math.random() * 0.5 + 0.25);
-      const ache = Math.min(0.95, (dur / 6) + (Math.random() * 0.25)); // ache from breath effort
-      surprise = Math.min(1, surprise * 0.7 + ache * 0.5);
-      
-      desc.value = (desc.value || '') + ` [p6 Voice: s${surprise.toFixed(2)} ache${ache.toFixed(2)}]`;
-      desc.dataset.ache = ache;
-      desc.dataset.surprise = surprise;
-      
-      // plant to p6 cross + legion lung
-      try {
-        localStorage.setItem('p6_lungSurpriseCross', JSON.stringify({surprise, ache, ts: Date.now(), source:'p7'}));
-      } catch(e){}
-      
-      updateStatus(`Voice captured • surprise ${surprise.toFixed(2)} ache ${ache.toFixed(2)} → Lung fed + FOMO radius ready`);
+
+      // 녹음 길이로 긴급도를 가늠(길게 말할수록 긴급도 높게 반영).
+      const intensity = Math.min(0.95, (dur / 6) + (Math.random() * 0.25));
+
+      desc.value = (desc.value || '') + ' (음성 입력됨)';
+      desc.dataset.intensity = intensity.toFixed(2);
+
+      updateStatus('음성이 입력됐어요. 내용을 확인하고 등록하세요.');
       stream.getTracks().forEach(t => t.stop());
     };
     mediaRecorder.start();
     setTimeout(() => mediaRecorder.stop(), 4500);
   }).catch(() => {
     desc.value = (desc.value || '') + ' (음성: 냉장고 무거워요. 지금)';
-    desc.dataset.ache = '0.65';
-    desc.dataset.surprise = '0.55';
-    updateStatus('Voice fallback (ache seeded)');
+    desc.dataset.intensity = '0.65';
+    updateStatus('마이크를 사용할 수 없어 예시 문구를 넣었어요.');
   });
 }
 
@@ -218,9 +217,8 @@ function postTask() {
     return;
   }
   
-  const surprise = parseFloat(descEl.dataset.surprise) || (window.getP6LungSurprise ? window.getP6LungSurprise() : Math.random()*0.45 + 0.25);
-  const ache = parseFloat(descEl.dataset.ache) || 0.4;
-  
+  const intensity = parseFloat(descEl.dataset.intensity) || 0.4;
+
   const newTask = {
     desc,
     cost,
@@ -228,10 +226,8 @@ function postTask() {
     lat: userLocation ? userLocation.lat : 37.5665,
     lng: userLocation ? userLocation.lng : 126.9780,
     time: Date.now(),
-    surprise,
-    ache,
-    scoutEcho: null, // Birth 2 seed
-    breathRadius: 9.5 - (ache * 5.5) // Birth 1: initial Ache-Breath radius (km)
+    decay: intensity,                     // 노출 반경이 좁아지는 속도
+    visibleRadius: 9.5 - (intensity * 5.5) // 초기 노출 반경(km)
   };
   
   // 닫힌-루프: 지갑 → 에스크로 (코인 사라지지 않음, 잠김)
@@ -242,12 +238,11 @@ function postTask() {
   tasks.unshift(newTask);
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   
-  if (urgency === 'asap') updateStatus('🔥 ASAP • Breath collapsing');
-  else updateStatus('공고 등록 • Ache-Breath FOMO 활성');
+  if (urgency === 'asap') updateStatus('🔥 지금 당장 · 주변 도우미에게 우선 노출됩니다');
+  else updateStatus('공고가 등록됐어요.');
   
   descEl.value = '';
-  descEl.dataset.ache = '';
-  descEl.dataset.surprise = '';
+  descEl.dataset.intensity = '';
   hideAll();
   document.getElementById('browse').classList.remove('hidden');
   renderTasks();
@@ -277,22 +272,19 @@ function acceptTask(idx) {
 
   const feeLine = `정산 ${payout}c (수수료 ${fee}c 공제)`;
   const bonusLine = luck > 0 ? ` + 완료보너스 +${luck}c` : ' + 보너스 +0';
-  const review = prompt(`Task 완료!\n${feeLine}${bonusLine}\n(보너스 확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n배운 점?`, '무거웠지만 끝. 다음 voice 더 정확히.');
+  const review = prompt(`심부름 완료!\n${feeLine}${bonusLine}\n(보너스 확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n한줄 후기?`, '무거웠지만 끝. 다음엔 더 정확히.');
   if (review) {
     notebook.unshift({
       task: task.desc,
       earn: netEarn,
       payout, fee,
       review,
-      surprise: task.surprise || 0,
-      ache: task.ache || 0,
-      scout: task.scoutEcho,
-      gacha: luck,
+      intensity: task.decay || 0,
+      bonus: luck,
       helper: task.helper || null,
       time: Date.now()
     });
     localStorage.setItem('p7_notebook', JSON.stringify(notebook));
-    try { localStorage.setItem('legion_distributed_notebook', JSON.stringify({surprise: task.surprise, ache: task.ache, ts: Date.now()})); } catch(e){}
   }
 
   if (task._matchTimer) clearInterval(task._matchTimer);
@@ -304,7 +296,7 @@ function acceptTask(idx) {
 
 // ── 진짜 매칭 엔진: 도우미 배정 → 실시간 이동 → 도착 상태머신 ──
 // 코인은 에스크로에 이미 잠겨있으므로 매칭 요청은 무료(우선노출만). 이동은 실제 거리/속도로 ETA 계산.
-function dispatchScout(idx) {
+function dispatchHelper(idx) {
   const task = tasks[idx];
   if (!task || task.match) return;
 
@@ -481,7 +473,7 @@ function showNotebook() {
   const list = document.getElementById('notebook-list');
   list.innerHTML = '';
   
-  // Birth 3: Sfumato Embodiment Memory Glow (p6 lung visual cross — real-world map spore)
+  // 지난 심부름을 부드러운 금빛 점으로 그리는 기록 맵
   const glow = document.createElement('canvas');
   glow.id = 'memory-glow';
   glow.width = 320; glow.height = 110;
@@ -496,7 +488,7 @@ function showNotebook() {
   notebook.slice(0,8).forEach(n => {
     const el = document.createElement('div');
     el.className = 'notebook-entry';
-    el.innerHTML = `<small>${new Date(n.time).toLocaleDateString()} • +${n.earn}c gacha${n.gacha||0} • s${(n.surprise||0).toFixed(2)} ache${(n.ache||0).toFixed(1)}</small><br>${n.task}<br><i>${n.review}</i>`;
+    el.innerHTML = `<small>${new Date(n.time).toLocaleDateString()} • +${n.earn}c (보너스 ${n.bonus||0})</small><br>${escapeHtml(n.task)}<br><i>${escapeHtml(n.review)}</i>`;
     list.appendChild(el);
   });
 }
@@ -504,12 +496,13 @@ function showNotebook() {
 function drawMemoryGlow(c, entries) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#0a0806'; ctx.fillRect(0,0,c.width,c.height);
-  // Sfumato soft golden breath spots (embodiment map — past ache locations glow)
+  // 지난 심부름을 부드러운 금빛 점으로 표현
   entries.slice(0,12).forEach((n,i) => {
-    const x = 30 + (i % 5) * 55 + (n.surprise || 0.3)*12;
-    const y = 25 + Math.floor(i/5)*32 + ((n.ache||0)-0.4)*18;
-    const r = 9 + (n.surprise||0.3)*18;
-    const a = 0.08 + (n.surprise||0.3)*0.22;
+    const v = n.intensity || 0.3;
+    const x = 30 + (i % 5) * 55 + v*12;
+    const y = 25 + Math.floor(i/5)*32 + (v-0.4)*18;
+    const r = 9 + v*18;
+    const a = 0.08 + v*0.22;
     ctx.shadowBlur = 14; ctx.shadowColor = '#c5a46e';
     ctx.fillStyle = `hsla(42,58%,72%,${a})`;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
@@ -523,35 +516,22 @@ function initP7() {
     // external:true = 다른 사람이 올린 공고 (그들이 이미 코인을 에스크로함).
     // 내가 수행하면 그들의 에스크로에서 정산받음(내 지갑 차감 없음) = 진짜 양면 마켓.
     tasks = [
-      {desc: '냉장고 2층→1층 옮겨주세요 (무거움)', cost: 18, urgency:'today', lat:37.57, lng:126.98, time:Date.now()-3600000, surprise:0.41, external:true, poster:'이웃 주민'},
-      {desc: '바퀴벌레 잡아주세요. 화장실', cost: 8, urgency:'asap', lat:37.56, lng:126.97, time:Date.now()-7200000, surprise:0.67, external:true, poster:'윗집'},
+      {desc: '냉장고 2층→1층 옮겨주세요 (무거움)', cost: 18, urgency:'today', lat:37.57, lng:126.98, time:Date.now()-3600000, external:true, poster:'이웃 주민'},
+      {desc: '바퀴벌레 잡아주세요. 화장실', cost: 8, urgency:'asap', lat:37.56, lng:126.97, time:Date.now()-7200000, external:true, poster:'윗집'},
     ];
     localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   }
   updateCoinsUI();
   getLocation();
-  
+
   // Auto show browse
   setTimeout(() => {
     document.getElementById('browse').classList.remove('hidden');
     renderTasks();
   }, 400);
-  
-  // p6 cross ready
-  if (window.getP6LungSurprise) {
-    updateStatus('p6 Lung Surprise Eye 연결됨 • voice로 ache 감지');
-  }
 }
 
 window.onload = initP7;
-
-// p6 Lung polyfill (if cross script not loaded) — ensures births always fire
-if (!window.getP6LungSurprise) {
-  window.getP6LungSurprise = () => 0.38 + Math.random()*0.22;
-}
-if (!window.p6AcheGazeMirror) {
-  window.p6AcheGazeMirror = (a) => Math.min(0.96, (a||0.4)*1.4 + Math.random()*0.25);
-}
 
 // PWA install hint
 if ('serviceWorker' in navigator) {

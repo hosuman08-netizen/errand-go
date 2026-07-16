@@ -1,7 +1,7 @@
 {
   "name": "Errand — 생활심부름",
   "short_name": "Errand",
-  "description": "위치 기반 생활 심부름. p6 Voice + Legion.",
+  "description": "위치 기반 생활 심부름. 가상 크레딧(코인)으로 이용하는 체험용 서비스.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0806",

@@ -1,4 +1,4 @@
-/* p7 Errand — Da Vinci + SENSE + p6 Lung cross */
+/* Errand — 위치 기반 생활 심부름 스타일 */
 :root {
   --bg: #0a0806;
   --gold: #c5a46e;
@@ -13,7 +13,12 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, sy
 header { text-align: center; margin-bottom: 16px; }
 h1 { font-size: 32px; margin: 4px 0; letter-spacing: -1px; }
 .tagline { color: var(--dim); font-size: 13px; }
-.disclaimer { font-size: 9px; opacity: 0.4; letter-spacing: 1px; }
+.disclaimer {
+  font-size: 11px; letter-spacing: 0.5px; line-height: 1.4;
+  color: var(--gold); background: rgba(197,164,110,0.08);
+  border: 1px solid #3a3124; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 12px;
+}
 
 .nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 16px 0; }
 button {
@@ -108,3 +113,7 @@ button:active { transform: scale(0.97); }
 .notebook-entry {
   background: var(--card); border: 1px solid #3a3124; padding: 10px; border-radius: 8px; margin: 8px 0; font-size: 13px;
 }
+
+.app-footer { text-align: center; margin: 28px 0 12px; }
+.app-footer a { color: var(--dim); font-size: 12px; text-decoration: none; opacity: 0.8; }
+.app-footer a:hover { color: var(--gold); opacity: 1; }
