@@ -1,7 +1,9 @@
 // 붕어빵 앱 범용 런타임 크래시 게이트 — vm+DOM+TG목(세션 독립). p2에서 검증됨.
 // 앱 조립 후 out/<app>/test/runtime-check.js 로 복사. ENTRY_JS = 앱 진입 스크립트(기본 script.js).
 const fs = require('fs'), vm = require('vm');
-const ENTRY = process.env.ENTRY_JS || 'script.js';   // 앱 진입 스크립트(ENTRY_JS env로 오버라이드)
+// 앱 진입 스크립트(들). 여러 파일이면 index.html 로드 순서대로 콤마 구분.
+const ENTRIES = (process.env.ENTRY_JS || 'data.js,engine.js,script.js').split(',').map(s=>s.trim()).filter(Boolean);
+const ENTRY = ENTRIES[ENTRIES.length-1];
 function mockEl(){
   const e = { textContent:'', innerHTML:'', value:'', dataset:{}, style:new Proxy({},{get(t,k){if(k==='removeProperty'||k==='setProperty'||k==='getPropertyValue')return ()=>'';return t[k]??'';},set(t,k,v){t[k]=v;return true}}),
     classList:{add(){},remove(){},toggle(){},contains(){return false}}, offsetWidth:100, clientWidth:360, width:360, height:360,
@@ -32,8 +34,11 @@ sb.alert=()=>{}; sb.confirm=()=>true; sb.prompt=()=>'';
 vm.createContext(sb);
 let fail=0;
 if(!fs.existsSync(ENTRY)){ console.log('⚪ 진입스크립트 없음('+ENTRY+') — 앱 조립 후 실행'); process.exit(0); }
-try{ vm.runInContext(fs.readFileSync(ENTRY,'utf8'),sb,{filename:ENTRY}); console.log('LOAD',ENTRY,'✅'); }
-catch(e){ fail++; console.log('LOAD ERROR',ENTRY,'❌',e.message,'\n',(e.stack||'').split('\n').slice(0,3).join('\n')); }
+ENTRIES.forEach(function(f){
+  if(!fs.existsSync(f)){ fail++; console.log('LOAD ERROR',f,'❌ 파일 없음'); return; }
+  try{ vm.runInContext(fs.readFileSync(f,'utf8'),sb,{filename:f}); console.log('LOAD',f,'✅'); }
+  catch(e){ fail++; console.log('LOAD ERROR',f,'❌',e.message,'\n',(e.stack||'').split('\n').slice(0,3).join('\n')); }
+});
 const T = `(function(){ var R=[];
   function tryFn(l,f){ try{ f(); R.push('✅ '+l); }catch(e){ R.push('❌ '+l+' — '+e.message); } }
   tryFn('window.onload(부팅)', function(){ if(typeof window.onload==='function') window.onload(); });
