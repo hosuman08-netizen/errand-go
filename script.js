@@ -31,6 +31,39 @@ const HELPER_POOL = [
   { name: '도윤', rating: 4.95, jobs: 47, speedKmH: 6,  mode: '🚶', latOff: 0.004, lngOff: 0.003 },
 ];
 
+// ── 살아있는 평판 시스템: 내가 매긴 별점이 실제로 도우미 평점·수행건수에 반영·저장된다 ──
+// 평점은 누적 가중평균으로 재계산(진짜 평판 이동). p7_reps에 도우미별 {sumStars,count} 저장.
+let helperReps = JSON.parse(localStorage.getItem('p7_reps') || '{}');
+
+// 저장된 평판을 풀에 병합(표시 rating/jobs = 실제 누적 반영)
+function applyHelperReps() {
+  HELPER_POOL.forEach(h => {
+    const r = helperReps[h.name];
+    if (r && r.count > 0) {
+      // 초기 평점을 기저 표본(가중치 20건)으로 두고 내 별점을 누적 → 급변 없이 실제 이동
+      const baseW = 20;
+      h.rating = +(((h._baseRating ?? h.rating) * baseW + r.sumStars) / (baseW + r.count)).toFixed(2);
+      h.jobs = (h._baseJobs ?? h.jobs) + r.count;
+    }
+  });
+}
+// 원본 보존(재계산 기저)
+HELPER_POOL.forEach(h => { h._baseRating = h.rating; h._baseJobs = h.jobs; });
+applyHelperReps();
+
+// 별점 1건 반영 → 누적·저장·풀 갱신
+function rateHelper(name, stars) {
+  if (!name || !(stars >= 1 && stars <= 5)) return null;
+  const r = helperReps[name] || { sumStars: 0, count: 0 };
+  r.sumStars += stars;
+  r.count += 1;
+  helperReps[name] = r;
+  localStorage.setItem('p7_reps', JSON.stringify(helperReps));
+  applyHelperReps();
+  const h = HELPER_POOL.find(x => x.name === name);
+  return h ? { rating: h.rating, jobs: h.jobs } : null;
+}
+
 let userLocation = null;
 let tasks = JSON.parse(localStorage.getItem('p7_tasks') || '[]');
 let coins = parseInt(localStorage.getItem('p7_coins') || '42');
@@ -270,9 +303,22 @@ function acceptTask(idx) {
   const netEarn = payout + luck;
   updateCoinsUI();
 
+  // 매칭 도우미가 수행했으면 별점을 받아 실제 평판에 반영(살아있는 평판 루프)
+  let ratedStars = null, updatedRep = null;
+  const helperName = task.helper || (task.match && task.match.helperName) || null;
+  if (helperName) {
+    const raw = prompt(`✅ ${helperName} 님이 완료했어요.\n도움은 어땠나요? 별점 1~5 (엔터=건너뛰기)`, '5');
+    const s = parseInt(raw);
+    if (s >= 1 && s <= 5) {
+      ratedStars = s;
+      updatedRep = rateHelper(helperName, s);
+    }
+  }
+
   const feeLine = `정산 ${payout}c (수수료 ${fee}c 공제)`;
   const bonusLine = luck > 0 ? ` + 완료보너스 +${luck}c` : ' + 보너스 +0';
-  const review = prompt(`심부름 완료!\n${feeLine}${bonusLine}\n(보너스 확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n한줄 후기?`, '무거웠지만 끝. 다음엔 더 정확히.');
+  const ratedLine = ratedStars ? `\n${helperName}에게 ${'★'.repeat(ratedStars)} 반영됨` : '';
+  const review = prompt(`심부름 완료!\n${feeLine}${bonusLine}${ratedLine}\n(보너스 확률: ${BONUS_ODDS_LABEL})\n"${task.desc}"\n한줄 후기?`, '무거웠지만 끝. 다음엔 더 정확히.');
   if (review) {
     notebook.unshift({
       task: task.desc,
@@ -281,7 +327,8 @@ function acceptTask(idx) {
       review,
       intensity: task.decay || 0,
       bonus: luck,
-      helper: task.helper || null,
+      helper: helperName,
+      stars: ratedStars,
       time: Date.now()
     });
     localStorage.setItem('p7_notebook', JSON.stringify(notebook));
@@ -291,7 +338,10 @@ function acceptTask(idx) {
   tasks.splice(idx, 1);
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
   renderTasks();
-  updateStatus(`+${netEarn}c (정산 ${payout} · 수수료 ${fee} · 보너스 ${luck})`);
+  const repLine = updatedRep
+    ? ` · ${helperName} 평점 ⭐${updatedRep.rating} (${updatedRep.jobs}건)`
+    : '';
+  updateStatus(`+${netEarn}c (정산 ${payout} · 수수료 ${fee} · 보너스 ${luck})${repLine}`);
 }
 
 // ── 진짜 매칭 엔진: 도우미 배정 → 실시간 이동 → 도착 상태머신 ──
@@ -507,7 +557,10 @@ function showNotebook() {
   notebook.slice(0,8).forEach(n => {
     const el = document.createElement('div');
     el.className = 'notebook-entry';
-    el.innerHTML = `<small>${new Date(n.time).toLocaleDateString()} • +${n.earn}c (보너스 ${n.bonus||0})</small><br>${escapeHtml(n.task)}<br><i>${escapeHtml(n.review)}</i>`;
+    const helperLine = n.helper
+      ? ` • ${escapeHtml(n.helper)}${n.stars ? ' ' + '★'.repeat(n.stars) : ''}`
+      : '';
+    el.innerHTML = `<small>${new Date(n.time).toLocaleDateString()} • +${n.earn}c (보너스 ${n.bonus||0})${helperLine}</small><br>${escapeHtml(n.task)}<br><i>${escapeHtml(n.review)}</i>`;
     list.appendChild(el);
   });
 }
