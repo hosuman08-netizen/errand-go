@@ -1,3 +1,6 @@
+
+/* LEGION_WAVE_43_session_counter */
+try{if(!sessionStorage.getItem('lw_p7_errand_ap_session_counter')){sessionStorage.setItem('lw_p7_errand_ap_session_counter','1');localStorage.setItem('lw_p7_errand_ap_session_counter',String((+(localStorage.getItem('lw_p7_errand_ap_session_counter')||0))+1));}}catch(e){}
 /* ============================================================
    Errand — 화면 (요청자/헬퍼 양면 · 추적 · 증빙 · 분쟁 · 안전)
    ============================================================ */
