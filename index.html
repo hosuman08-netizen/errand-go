@@ -62,8 +62,8 @@
       <h2>코인 잔액</h2>
       <div class="balance"><span id="coin-balance">42</span> coins</div>
       <div id="escrow-row" class="escrow-row" style="display:none">에스크로 잠김 <span id="escrow-balance">0</span>c · 공고 정산/취소 시 해제</div>
-      <div class="fomo">오늘 충전 한정: 3/5 남음</div>
-      <button onclick="chargeCoins()">🪙 코인 충전 (₩5,000 = 50 coins)</button>
+      <div id="charge-left" class="fomo">오늘 충전 5/5회 남음</div>
+      <button id="charge-btn" onclick="chargeCoins()">🪙 코인 충전 (₩5,000 = 50 coins)</button>
       <small>가상 크레딧(Helper Credits) • 실제 화폐 아님 • 만 18세 이상</small>
       <div class="ledger-note">플랫폼 수수료 15% (완료 시에만) · 코인은 발행 없이 이동만 · 아래 원장 공개</div>
       <div id="ledger-list" class="ledger-list"></div>

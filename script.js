@@ -423,6 +423,7 @@ function showCoins() {
   document.getElementById('coins').classList.remove('hidden');
   updateCoinsUI();
   renderLedger();
+  updateChargeUI();
 }
 
 function renderLedger() {
@@ -449,12 +450,29 @@ function renderLedger() {
   });
 }
 
+const DAILY_CHARGE_LIMIT = 5; // 하루 충전 횟수 상한(공개·표시와 동일)
+
+function chargesLeftToday() {
+  const today = new Date().toDateString();
+  const charges = JSON.parse(localStorage.getItem('p7_charges') || '{}');
+  return Math.max(0, DAILY_CHARGE_LIMIT - (charges[today] || 0));
+}
+
+// 남은 충전 횟수를 코드값 그대로 화면에 반영(표시=실제 100% 일치)
+function updateChargeUI() {
+  const left = chargesLeftToday();
+  const fomoEl = document.getElementById('charge-left');
+  if (fomoEl) fomoEl.textContent = `오늘 충전 ${left}/${DAILY_CHARGE_LIMIT}회 남음`;
+  const btn = document.getElementById('charge-btn');
+  if (btn) btn.disabled = left <= 0;
+}
+
 function chargeCoins() {
-  // FOMO charge
   const today = new Date().toDateString();
   let charges = JSON.parse(localStorage.getItem('p7_charges') || '{}');
-  if (charges[today] >= 5) {
-    alert('오늘 충전 한도 초과 (FOMO)');
+  if ((charges[today] || 0) >= DAILY_CHARGE_LIMIT) {
+    updateStatus('오늘 충전 횟수를 모두 사용했어요. 내일 다시 가능합니다.');
+    updateChargeUI();
     return;
   }
   coins += 50;
@@ -463,7 +481,8 @@ function chargeCoins() {
   postLedger('charge', +50, '코인 충전 (virtual credit)');
   updateCoinsUI();
   renderLedger();
-  updateStatus('50 coins 충전 완료 • virtual credit');
+  updateChargeUI();
+  updateStatus(`50 coins 충전 완료 • 오늘 ${chargesLeftToday()}회 남음`);
 }
 
 function showNotebook() {
