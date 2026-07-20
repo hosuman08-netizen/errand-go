@@ -1490,3 +1490,5 @@ function init() {
 window.onload = init;
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+/* LEGION_WAVE_88_wave_stamp */ /* ship wave 88 2026-07-21T07:44:13 */
