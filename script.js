@@ -13,6 +13,62 @@ const ui = {
   queueSort: 'near',      // near | pay | urgent
 };
 
+
+/* ── 5H retention loop (local) ─────────────────────────────── */
+function dayKey(off) {
+  const d = new Date(); d.setDate(d.getDate() + (off || 0));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function bumpErrandStreak(kind) {
+  try {
+    let st = JSON.parse(localStorage.getItem('errand_streak') || '{}');
+    const t0 = dayKey(0);
+    if (st.last !== t0) {
+      const y = dayKey(-1), y2 = dayKey(-2);
+      if (st.last && st.last !== y && st.last === y2 && (st.count || 0) >= 3) {
+        const ready = !st.shieldLast || ((new Date(t0) - new Date(st.shieldLast)) / 86400000) >= 7;
+        if (ready) { st.shieldLast = t0; st.last = y; try { legionTrack('streak_freeze', { count: st.count }); } catch (e) {} }
+      }
+      st.count = (st.last === y) ? (st.count || 0) + 1 : 1;
+      st.last = t0;
+      localStorage.setItem('errand_streak', JSON.stringify(st));
+      try { legionTrack('streak', { count: st.count, kind: kind || 'act' }); } catch (e) {}
+    }
+    const dk = 'errand_day_' + t0;
+    let day = JSON.parse(localStorage.getItem(dk) || '{"posts":0,"done":0}');
+    if (kind === 'post') day.posts = (day.posts || 0) + 1;
+    if (kind === 'done') day.done = (day.done || 0) + 1;
+    localStorage.setItem(dk, JSON.stringify(day));
+    return st;
+  } catch (e) { return { count: 0 }; }
+}
+function errandLoopStrip() {
+  try {
+    const st = JSON.parse(localStorage.getItem('errand_streak') || '{}');
+    const sc = st.count || 0;
+    const day = JSON.parse(localStorage.getItem('errand_day_' + dayKey(0)) || '{"posts":0,"done":0}');
+    const end = new Date(); end.setHours(24, 0, 0, 0);
+    const ms = Math.max(0, end - Date.now());
+    const clock = Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm';
+    const active = (typeof jobs !== 'undefined') ? jobs.filter(j => !isTerminal(j.status)).length : 0;
+    return `<div class="card" style="margin:10px 0;padding:10px;border:1px solid #2a2438;border-radius:12px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span>🔥 ${sc}일</span><span>오늘 올림 ${day.posts || 0}</span><span>완료 ${day.done || 0}</span><span>진행 ${active}</span><span>리셋 ${clock}</span>
+      <button type="button" class="ghost" style="margin-left:auto;padding:6px 10px" onclick="shareErrandBoard()">📤 보드 공유</button>
+    </div>`;
+  } catch (e) { return ''; }
+}
+function shareErrandBoard() {
+  try {
+    const st = JSON.parse(localStorage.getItem('errand_streak') || '{}');
+    const day = JSON.parse(localStorage.getItem('errand_day_' + dayKey(0)) || '{}');
+    const text = `Errand Go · 🔥${st.count || 0}일 · 오늘 올림 ${day.posts || 0} · https://hosuman08-netizen.github.io/errand-go/`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(text);
+    try { legionTrack('share_peak', {}); } catch (e) {}
+    toast('공유 문구 준비됨');
+  } catch (e) {}
+}
+
 function esc(s) {
   return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -108,10 +164,11 @@ function afterRender() {
    요청자 — 내 심부름 (주인공: 진행 중 추적 카드)
    ============================================================ */
 function viewHome() {
+  let loop = errandLoopStrip();
   const mine = jobs.filter(j => j.side === 'requester' && !isTerminal(j.status));
   const pending = jobs.filter(j => j.side === 'requester' && isTerminal(j.status) && j.review && !j.review.mine).slice(0, 3);
 
-  let h = '';
+  let h = loop;
   if (mine.length === 0 && pending.length === 0) {
     h += `<div class="empty">
       <div class="empty-icon">🧺</div>

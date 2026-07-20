@@ -264,6 +264,8 @@ function createJob(input) {
   pushEvent(job, `공고 접수 · 자동 심사 시작 (${SIM.screenRealLabel} 소요, ${simNote(SIM.screenRealLabel, SIM.screenSec)})`);
   jobs.unshift(job);
   saveJobs();
+  try { if (typeof bumpErrandStreak === 'function') bumpErrandStreak('post'); } catch (e) {}
+  try { if (window.legionTrack) legionTrack('activate', { post: 1 }); } catch (e) {}
   return job;
 }
 function pushEvent(job, text) {
@@ -476,6 +478,7 @@ function settleJob(job, ratio) {
 function labelOf(job) { return findCat(job.cat).name; }
 
 function archiveJob(job) {
+  try { if (typeof bumpErrandStreak === 'function' && (job.status === 'settled' || job.status === 'resolved')) bumpErrandStreak('done'); } catch (e) {}
   history.unshift({
     id: job.id, cat: job.cat, desc: job.desc, side: job.side,
     cost: job.agreedCost || job.cost, status: job.status,
