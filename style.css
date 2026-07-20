@@ -335,7 +335,64 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--g
 .full-img { width: 100%; border-radius: 12px; border: 1px solid var(--line2); display: block; }
 
 .hp-top { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; margin-bottom: 12px; }
+.hp-id { min-width: 0; }
 .hp-name { font-size: 17px; font-weight: 700; }
+.hp-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 5px; }
+
+/* ── 등급 배지 ── */
+.tier-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700;
+  color: var(--tc, var(--gold)); background: color-mix(in srgb, var(--tc, var(--gold)) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tc, var(--gold)) 34%, transparent);
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap; letter-spacing: .2px; }
+.tier-badge.susp { --tc: var(--bad); }
+
+.hp-tier-note { margin: 8px 0 12px; }
+
+/* ── 모달 탭 ── */
+.hp-tabs { display: flex; gap: 0; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin: 4px 0 14px; }
+.hp-tab { flex: 1; border: 0; background: transparent; color: var(--dim); font-size: 13px; font-weight: 600; padding: 9px 4px; border-radius: 8px; transition: color .18s ease-out, background .18s ease-out; }
+.hp-tab.on { background: var(--gold); color: #0a0806; font-weight: 700; }
+
+/* ── 성능지표 그리드 ── */
+.mx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+.mx-cell { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 6px; text-align: center; }
+.mx-cell b { display: block; font-size: 17px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.mx-cell span { font-size: 10px; color: var(--dim); }
+
+/* ── 평점 분포 ── */
+.rdist { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.rdist-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.rdist-avg { font-size: 34px; font-weight: 800; color: var(--gold); line-height: 1; font-variant-numeric: tabular-nums; }
+.rdist-sub { display: flex; flex-direction: column; gap: 3px; }
+.rdist-bars { display: flex; flex-direction: column; gap: 5px; }
+.rd-row { display: grid; grid-template-columns: 26px 1fr 34px; align-items: center; gap: 8px; }
+.rd-k { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.rd-bar { height: 6px; background: #221d16; border-radius: 999px; overflow: hidden; }
+.rd-bar i { display: block; height: 100%; background: linear-gradient(90deg, #b9975a, var(--gold)); border-radius: 999px; transition: width .8s ease-out; }
+.rd-v { font-size: 11px; color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+.st-off { color: var(--line2); }
+
+/* ── 후기 목록 ── */
+.rv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.rv-card { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 13px; }
+.rv-card.mine { border-color: color-mix(in srgb, var(--gold) 40%, var(--line)); background: rgba(197,164,110,.06); }
+.rv-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.rv-st { font-size: 13px; color: var(--warn); letter-spacing: 1px; }
+.rv-meta { font-size: 11px; color: var(--dim); }
+.rv-text { font-size: 13px; color: var(--text); opacity: .9; line-height: 1.55; margin-top: 7px; }
+.rv-tagrow { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.rv-tag { font-size: 10px; color: var(--gold); background: rgba(197,164,110,.08); border: 1px solid var(--line); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.rv-mine-badge { display: inline-block; margin-top: 8px; font-size: 9px; color: #0a0806; background: var(--gold); padding: 1px 7px; border-radius: 999px; font-weight: 700; }
+.rv-more { width: 100%; margin-top: 8px; background: transparent; border: 1px solid var(--line2); color: var(--gold); font-size: 12px; font-weight: 600; padding: 10px; border-radius: 10px; transition: background .18s ease-out; }
+.rv-more:hover { background: var(--card2); }
+
+/* ── 내 프로필 헤더 ── */
+.hp-me .ava.xl { margin: 0 auto 8px; }
+.hp-me-name { font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.hp-me-rating { margin-top: 8px; font-size: 14px; color: var(--warn); letter-spacing: 1px; }
+.hp-me-rating b { color: var(--gold); }
+.tier-next { margin-top: 12px; text-align: left; }
+
 .hp-intro { font-size: 13px; color: var(--text); opacity: .85; padding: 12px; background: var(--card2); border-radius: 10px; line-height: 1.55; }
 .sanction { margin-top: 12px; padding: 10px 12px; font-size: 12px; color: var(--bad); background: rgba(229,113,79,.08); border-radius: 10px; }
 .sanction-log { margin-top: 12px; font-size: 11px; color: var(--dim); line-height: 1.8; }

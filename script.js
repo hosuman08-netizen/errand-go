@@ -11,6 +11,9 @@ const ui = {
   draft: { cat: null, sub: null, desc: '', photoKey: null, priceMode: 'fixed', urgency: 'today', cost: null },
   queueCat: 'all',        // 헬퍼 콜 큐 카테고리 필터
   queueSort: 'near',      // near | pay | urgent
+  hpTab: 'info',          // 헬퍼 프로필 모달 탭: info | reviews
+  hpId: null,             // 현재 열린 헬퍼 id
+  reviewsOpen: false,     // 후기 아코디언 펼침
 };
 
 
@@ -902,11 +905,49 @@ function doWithdraw() {
 }
 
 function viewProfile() {
-  const myDone = history.filter(h => h.side === 'helper').length;
+  ui.hpId = null; // 이 화면의 후기 아코디언은 모달이 아님
+  const st = myHelperStats();
+  // 내 등급: 완료 수행건 + 요청자 평점으로 규칙 판정(헬퍼 데이터와 동일 기준)
+  const myRating = st.rating != null ? st.rating : 4.9;
+  const myTier = (function () {
+    let out = HELPER_TIERS[0];
+    for (const t of HELPER_TIERS) if (st.jobsCount >= t.minJobs && myRating >= t.minRating) out = t;
+    return out;
+  })();
+  const next = HELPER_TIERS.find(t => t.minJobs > myTier.minJobs) || null;
+  const toNext = next ? Math.max(0, next.minJobs - st.jobsCount) : 0;
+  const ratingLine = st.rating != null
+    ? `${starStr(st.rating)} <b>${st.rating.toFixed(2)}</b> <span class="dim sm">· 요청자 평가 ${st.ratedCount}건</span>`
+    : `<span class="dim sm">아직 받은 평가가 없습니다 — 첫 수행을 완료해 보세요</span>`;
+
   return `
-  <section class="card center">
+  <section class="card center hp-me">
     <div class="ava xl">🙂</div>
-    <h2 class="sec-title">헬퍼 프로필</h2>
+    <div class="hp-me-name">나의 헬퍼 프로필 ${tierBadge(myTier)}</div>
+    <div class="hp-me-rating">${ratingLine}</div>
+    ${next ? `<div class="tier-next">
+      <div class="dim sm">다음 등급 <b style="color:${next.color}">${next.icon} ${next.label}</b>까지 ${toNext > 0 ? `${toNext}건 더` : '평점 조건 충족 시 승급'}</div>
+      <div class="bar mt4"><i style="width:${Math.min(100, next.minJobs ? st.jobsCount / next.minJobs * 100 : 100).toFixed(0)}%"></i></div>
+    </div>` : `<div class="dim sm mt4">최고 등급에 도달했습니다 👑</div>`}
+    <div class="dim sm mt8">요청자는 매칭 전에 헬퍼의 성별·나이·얼굴·평점·누적 수행건수·후기를 확인할 수 있습니다.</div>
+  </section>
+  <section class="card">
+    <h2 class="sec-title">내 활동 지표</h2>
+    <div class="stat-row">
+      <div class="stat"><b>${st.jobsCount}</b><span>완료 수행</span></div>
+      <div class="stat"><b>${econ.cumWithdrawn}c</b><span>누적 인출</span></div>
+      <div class="stat"><b>${econ.earnings}c</b><span>미인출 수익금</span></div>
+    </div>
+    <div class="dim sm mt8">분쟁률이 ${(DISPUTE_AUTO_SUSPEND.rate * 100)}%를 넘으면(최소 ${DISPUTE_AUTO_SUSPEND.minJobs}건 이상) 자동으로 활동이 정지됩니다.</div>
+  </section>
+  <section class="card">
+    <h2 class="sec-title">요청자에게 받은 후기</h2>
+    ${st.received.length
+      ? reviewListHtml(st.received, { note: '요청자가 남긴 후기는 이중맹검 기간이 끝난 뒤 공개됩니다.' })
+      : `<div class="dim center pad8">아직 받은 후기가 없습니다.<br>심부름을 완료하면 요청자의 후기가 이곳에 쌓입니다.</div>`}
+  </section>
+  <section class="card">
+    <h2 class="sec-title">검증 완료 항목</h2>
     <div class="verify-list">
       <div class="v-row done"><b>✓ 신분증 등록</b><span>실명·생년월일 확인 완료</span></div>
       <div class="v-row done"><b>✓ 주소 등록</b><span>활동 지역 설정 완료</span></div>
@@ -914,24 +955,15 @@ function viewProfile() {
       <div class="v-row done"><b>✓ 백그라운드 체크</b><span>결격 사유 없음</span></div>
       <div class="v-row done"><b>✓ 헬퍼 자격 테스트</b><span>안전·응대 과정 통과</span></div>
     </div>
-    <div class="dim sm">요청자는 매칭 전에 헬퍼의 성별·나이·얼굴·평점·누적 수행건수를 확인할 수 있습니다.</div>
-  </section>
-  <section class="card">
-    <h2 class="sec-title">내 수행 기록</h2>
-    <div class="stat-row">
-      <div class="stat"><b>${myDone}</b><span>완료</span></div>
-      <div class="stat"><b>${econ.cumWithdrawn}c</b><span>누적 인출</span></div>
-      <div class="stat"><b>${econ.earnings}c</b><span>미인출</span></div>
-    </div>
-    <div class="dim sm">분쟁률이 ${(DISPUTE_AUTO_SUSPEND.rate * 100)}%를 넘으면(최소 ${DISPUTE_AUTO_SUSPEND.minJobs}건 이상) 자동으로 활동이 정지됩니다.</div>
   </section>
   <section class="card">
     <h2 class="sec-title">활동 중인 헬퍼</h2>
     ${HELPERS.map(h => {
       const s = sanctionOf(h.id);
+      const t = helperTier(h.id);
       return `<div class="helper-strip" onclick="showHelper('${h.id}')">
         <div class="ava lg">${h.avatar}</div>
-        <div class="who"><div class="nm">${esc(h.name)} ${isSuspended(h.id) ? '<span class="tag-sus">활동정지</span>' : ''}
+        <div class="who"><div class="nm">${esc(h.name)} ${isSuspended(h.id) ? '<span class="tag-sus">활동정지</span>' : tierBadge(t)}
           ${s.warns ? `<span class="tag-warn">경고 ${s.warns}</span>` : ''}</div>
           <div class="dim sm">⭐ ${h.rating} · ${h.jobs}건 · ${esc(h.vehicle)}</div></div>
         <span class="chev">›</span></div>`;
@@ -1004,7 +1036,7 @@ function openModal(title, html, cls) {
     `<div class="m-head"><h3>${esc(title)}</h3><button class="x" onclick="closeModal()">✕</button></div>${html}`;
   afterRender();
 }
-function closeModal() { ui.modal = null; $('modal').className = 'modal'; render(); }
+function closeModal() { ui.modal = null; ui.hpId = null; ui.hpTab = 'info'; ui.reviewsOpen = false; $('modal').className = 'modal'; render(); }
 
 function showPhoto(key, title) {
   const src = getBlob(key);
@@ -1014,36 +1046,119 @@ function showPhoto(key, title) {
     : `<div class="dim center pad8">이미지를 찾을 수 없습니다.<br>사진은 기기 메모리에만 보관되어 새로고침하면 사라집니다.</div>`);
 }
 
+/* ── 평판 프로필 렌더 조각(재사용) ─────────────────────────── */
+function tierBadge(tier) {
+  return `<span class="tier-badge" style="--tc:${tier.color}">${tier.icon} ${esc(tier.label)}</span>`;
+}
+function starStr(n) { const s = Math.max(0, Math.min(5, Math.round(n))); return '★★★★★'.slice(0, s) + '<span class="st-off">' + '★★★★★'.slice(s) + '</span>'; }
+function timeAgo(ts) {
+  const d = Math.max(0, Math.floor((Date.now() - ts) / 86400000));
+  if (d <= 0) return '오늘'; if (d === 1) return '어제'; if (d < 7) return `${d}일 전`;
+  if (d < 30) return `${Math.floor(d / 7)}주 전`; if (d < 365) return `${Math.floor(d / 30)}개월 전`;
+  return `${Math.floor(d / 365)}년 전`;
+}
+function metricsGridHtml(m) {
+  if (!m) return '';
+  const cell = (v, label) => `<div class="mx-cell"><b>${v}</b><span>${label}</span></div>`;
+  return `<div class="mx-grid">
+    ${cell(m.onTime + '%', '정시 도착률')}
+    ${cell(m.accept + '%', '수락률')}
+    ${cell(m.completion + '%', '완료율')}
+    ${cell(m.repeat + '%', '재의뢰율')}
+    ${cell('~' + m.respSec + '초', '평균 응답')}
+    ${cell(m.tenure + '개월', '활동 기간')}
+  </div>`;
+}
+function ratingDistHtml(id) {
+  const h = findHelper(id); if (!h) return '';
+  const dist = ratingDist(id);
+  const maxPct = Math.max(1, ...dist.map(d => d.pct));
+  return `<div class="rdist">
+    <div class="rdist-head"><b class="rdist-avg">${h.rating.toFixed(2)}</b><div class="rdist-sub">${starStr(h.rating)}<div class="dim sm">${h.jobs}건 평가</div></div></div>
+    <div class="rdist-bars">${dist.map(d => `<div class="rd-row"><span class="rd-k">${d.star}★</span>
+      <div class="rd-bar"><i style="width:${(d.pct / maxPct * 100).toFixed(0)}%"></i></div>
+      <span class="rd-v">${d.pct}%</span></div>`).join('')}</div>
+  </div>`;
+}
+function reviewCardHtml(r) {
+  const cat = findCat(r.catId);
+  const tagChips = (r.tags || []).map(id => { const t = findReviewTag(id); return t ? `<span class="rv-tag">${t.icon} ${esc(t.label)}</span>` : ''; }).join('');
+  return `<div class="rv-card${r.mine ? ' mine' : ''}">
+    <div class="rv-card-top">
+      <span class="rv-st">${starStr(r.stars)}</span>
+      <span class="rv-meta">${cat.icon} ${esc(cat.name)} · ${esc(r.reviewer)} · ${timeAgo(r.at)}</span>
+    </div>
+    ${r.text ? `<div class="rv-text">${esc(r.text)}</div>` : ''}
+    ${tagChips ? `<div class="rv-tagrow">${tagChips}</div>` : ''}
+    ${r.mine ? '<span class="rv-mine-badge">내가 남긴 후기</span>' : ''}
+  </div>`;
+}
+function reviewListHtml(reviews, opts) {
+  opts = opts || {};
+  if (!reviews.length) return `<div class="dim center pad8">아직 공개된 후기가 없습니다.<br>이중맹검 기간이 끝나면 후기가 공개됩니다.</div>`;
+  const shownN = ui.reviewsOpen ? reviews.length : Math.min(3, reviews.length);
+  const cards = reviews.slice(0, shownN).map(reviewCardHtml).join('');
+  const more = reviews.length > 3
+    ? `<button class="rv-more" onclick="toggleReviews()">${ui.reviewsOpen ? '접기 ▲' : `후기 ${reviews.length}개 모두 보기 ▼`}</button>`
+    : '';
+  const note = opts.note ? `<div class="dim sm mt8">${esc(opts.note)}</div>` : '';
+  return `<div class="rv-list">${cards}</div>${more}${note}`;
+}
+function toggleReviews() { ui.reviewsOpen = !ui.reviewsOpen; if (ui.hpId) showHelper(ui.hpId); else render(); }
+
+function setHpTab(t) { ui.hpTab = t; ui.reviewsOpen = false; if (ui.hpId) showHelper(ui.hpId); }
+
 function showHelper(id) {
   const h = findHelper(id); if (!h) return;
+  ui.hpId = id;
   const s = sanctionOf(id);
   const rep = helperReps[id] || { count: 0, completed: 0, disputes: 0 };
-  openModal(h.name + ' 헬퍼', `
+  const tier = helperTier(id);
+  const m = helperMetrics(id);
+  const reviews = helperReviews(id);
+  const suspended = isSuspended(id);
+
+  const header = `
     <div class="hp-top">
       <div class="ava xl">${h.avatar}</div>
-      <div>
+      <div class="hp-id">
         <div class="hp-name">${esc(h.name)} <span class="dim">${h.gender}·${h.age}세</span></div>
-        <div class="dim sm">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)}</div>
-        <div class="dim sm">${esc(h.joined)} 가입</div>
+        <div class="hp-badges">${suspended ? `<span class="tier-badge susp">🚫 활동정지</span>` : tierBadge(tier)}
+          ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}</div>
+        <div class="dim sm mt4">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)} · ${esc(h.joined)} 가입</div>
       </div>
     </div>
-    <div class="hp-intro">"${esc(h.intro)}"</div>
-    ${tagCloudHtml(id)}
-    <div class="verify-list">
-      <div class="v-row done"><b>✓ 신분증 확인</b><span>실명 확인 완료</span></div>
-      <div class="v-row done"><b>✓ 백그라운드 체크</b><span>${esc(h.bgCheck)}</span></div>
-      <div class="v-row done"><b>✓ 헬퍼 자격 테스트</b><span>${h.quiz}점 통과</span></div>
-    </div>
-    <div class="stat-row">
-      <div class="stat"><b>${rep.completed || 0}</b><span>내 요청 완료</span></div>
-      <div class="stat"><b>${rep.count || 0}</b><span>내가 준 평가</span></div>
-      <div class="stat"><b>${(disputeRate(id) * 100).toFixed(0)}%</b><span>분쟁률</span></div>
-    </div>
-    ${isSuspended(id) ? `<div class="sanction">🚫 현재 ${s.permanent ? '영구' : '30일'} 활동정지 — 매칭 풀에서 제외됨</div>` : ''}
-    ${(s.log || []).length ? `<div class="sanction-log"><b>제재 이력</b>${s.log.map(l =>
-      `<div>${new Date(l.at).toLocaleDateString('ko-KR')} · ${esc(SANCTIONS[l.kind] ? SANCTIONS[l.kind].label : l.kind)} — ${esc(l.why)}</div>`).join('')}</div>` : ''}
-    <div class="dim sm">전문 분야: ${h.cats.map(c => esc(findCat(c).name)).join(' · ')}</div>
-  `);
+    <div class="hp-tier-note dim sm">${tier.icon} ${esc(tier.label)} 등급 · ${esc(tier.desc)}</div>
+    <div class="hp-tabs">
+      <button class="hp-tab ${ui.hpTab === 'info' ? 'on' : ''}" data-hptab="info" onclick="setHpTab('info')">프로필</button>
+      <button class="hp-tab ${ui.hpTab === 'reviews' ? 'on' : ''}" data-hptab="reviews" onclick="setHpTab('reviews')">후기 ${reviews.length}</button>
+    </div>`;
+
+  let body;
+  if (ui.hpTab === 'reviews') {
+    body = `${ratingDistHtml(id)}
+      ${reviewListHtml(reviews, { note: '후기는 이중맹검(양측 제출·기한 만료 후 공개) 방식으로 수집되며, 프로그램이 생성한 시뮬레이션 후기와 회원님이 남긴 실제 후기가 함께 표시됩니다.' })}`;
+  } else {
+    body = `
+      <div class="hp-intro">"${esc(h.intro)}"</div>
+      ${metricsGridHtml(m)}
+      ${tagCloudHtml(id)}
+      <div class="verify-list">
+        <div class="v-row done"><b>✓ 신분증 확인</b><span>실명 확인 완료</span></div>
+        <div class="v-row done"><b>✓ 백그라운드 체크</b><span>${esc(h.bgCheck)}</span></div>
+        <div class="v-row done"><b>✓ 헬퍼 자격 테스트</b><span>${h.quiz}점 통과</span></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><b>${rep.completed || 0}</b><span>내 요청 완료</span></div>
+        <div class="stat"><b>${rep.count || 0}</b><span>내가 준 평가</span></div>
+        <div class="stat"><b>${(disputeRate(id) * 100).toFixed(0)}%</b><span>분쟁률</span></div>
+      </div>
+      ${suspended ? `<div class="sanction">🚫 현재 ${s.permanent ? '영구' : '30일'} 활동정지 — 매칭 풀에서 제외됨</div>` : ''}
+      ${(s.log || []).length ? `<div class="sanction-log"><b>제재 이력</b>${s.log.map(l =>
+        `<div>${new Date(l.at).toLocaleDateString('ko-KR')} · ${esc(SANCTIONS[l.kind] ? SANCTIONS[l.kind].label : l.kind)} — ${esc(l.why)}</div>`).join('')}</div>` : ''}
+      <div class="dim sm">전문 분야: ${h.cats.map(c => esc(findCat(c).name)).join(' · ')}</div>`;
+  }
+  openModal(h.name + ' 헬퍼', header + body);
 }
 
 function tagCloudHtml(helperId) {

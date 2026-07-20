@@ -170,6 +170,144 @@ function disputeRate(helperId) {
   return (r.disputes || 0) / total;
 }
 
+/* ============================================================
+   평판 프로필 — 등급 · 성능지표 · 평점분포 · 후기목록 (전부 결정적)
+   한 헬퍼는 항상 같은 값을 낸다(id 시드). 무작위·매 렌더 변동 없음.
+   ============================================================ */
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+/* 가입 'YYYY-MM' → 활동 개월 수(현재 기준). 시뮬 현재일 고정 사용 안 함 → 실제 today. */
+function tenureMonths(h) {
+  if (!h || !h.joined) return 0;
+  const m = /^(\d{4})-(\d{2})/.exec(h.joined); if (!m) return 0;
+  const then = new Date(+m[1], +m[2] - 1, 1), now = new Date();
+  return Math.max(1, (now.getFullYear() - then.getFullYear()) * 12 + (now.getMonth() - then.getMonth()));
+}
+
+/* 규칙 기반 등급 — min* 를 모두 만족하는 가장 높은 등급. */
+function helperTier(helperId) {
+  const h = findHelper(helperId); if (!h) return findTier('new');
+  const dr = disputeRate(helperId);
+  let out = HELPER_TIERS[0];
+  for (const t of HELPER_TIERS) {
+    if (h.jobs >= t.minJobs && h.rating >= t.minRating && dr <= t.maxDispute) out = t;
+  }
+  return out;
+}
+
+/* 성능지표 — 실제 필드(평점·응답속도·수행량·분쟁률·가입일)에서 파생.
+   헬퍼별 안정적 편차만 시드 rng로 부여(값은 새로고침해도 불변). */
+function helperMetrics(helperId) {
+  const h = findHelper(helperId); if (!h) return null;
+  const rnd = rngFor(helperId + 'metrics');
+  const dr = disputeRate(helperId);
+  const jobs = h._baseJobs || h.jobs;
+  // 정시 도착률: 평점 4.4~5.0 → 86~99%
+  const onTime = Math.round(clamp(86 + (h.rating - 4.4) / 0.6 * 13, 80, 99));
+  // 수락률: 응답이 빠를수록 높음(respondSec 4~18) + 소폭 편차
+  const accept = Math.round(clamp(98 - (h.respondSec - 4) * 1.4 - rnd() * 3, 68, 99));
+  // 완료율: 분쟁률의 보수적 반영
+  const completion = Math.round(clamp(99 - dr * 100 - rnd() * 1.5, 80, 100));
+  // 재의뢰율: 평점·누적건수 기반(높은 평판일수록 단골 비중↑)
+  const repeat = Math.round(clamp((h.rating - 4.3) / 0.7 * 44 + Math.min(18, jobs / 20), 8, 74));
+  return { onTime, accept, completion, repeat, respSec: h.respondSec, tenure: tenureMonths(h), disputePct: Math.round(dr * 100) };
+}
+
+/* 평점 분포 — 평균 평점과 정합적인 별점 히스토그램(결정적).
+   막대만 표시하고 평균은 h.rating을 그대로 노출한다(표시=코드 일치). */
+function ratingDist(helperId) {
+  const h = findHelper(helperId); if (!h) return [];
+  const rnd = rngFor(helperId + 'dist');
+  const R = h.rating, N = Math.max(1, h.jobs);
+  const p5 = clamp((R - 3.55) / 1.45, 0.45, 0.95);
+  const rem = 1 - p5;
+  let props = [p5, rem * 0.60, rem * 0.24, rem * 0.10, rem * 0.06];
+  // 순서를 깨지 않는 미세 편차
+  props = props.map((p, i) => p * (1 + (i ? (rnd() - 0.5) * 0.12 : 0)));
+  const sum = props.reduce((s, p) => s + p, 0);
+  props = props.map(p => p / sum);
+  let counts = props.map(p => Math.round(p * N));
+  // 합을 N으로 보정(가장 큰 항에 반영)
+  let diff = N - counts.reduce((s, c) => s + c, 0);
+  counts[0] += diff;
+  if (counts[0] < 0) counts[0] = 0;
+  const stars = [5, 4, 3, 2, 1];
+  const total = counts.reduce((s, c) => s + c, 0) || 1;
+  return stars.map((star, i) => ({ star, count: counts[i], pct: Math.round(counts[i] / total * 100) }));
+}
+
+/* 요청자가 이 헬퍼에게 남긴 실제 공개 후기(내 것) — jobs에서 수집. */
+function realReviewsFor(helperId) {
+  const out = [];
+  try {
+    (jobs || []).forEach(j => {
+      if (j.helperId === helperId && j.side === 'requester' && j.review && j.review.mine && j.review.revealed) {
+        const m = j.review.mine;
+        out.push({ mine: true, stars: m.stars, text: m.text || '', tags: (m.tags || []).slice(), catId: j.cat, at: m.at || j.at || Date.now(), reviewer: '나' });
+      }
+    });
+  } catch (e) { /* jobs 미로드 방어 */ }
+  return out;
+}
+
+/* 헬퍼가 받은 공개 후기 목록 = 내 실제 후기(있으면 우선) + 결정적 시드 후기.
+   시드 후기는 태그·별점·카테고리·작성시점이 전부 id 시드에서 나온다(불변). */
+function helperReviews(helperId, limit) {
+  const h = findHelper(helperId); if (!h) return [];
+  const cap = limit || 8;
+  const mine = realReviewsFor(helperId);
+  const rnd = rngFor(helperId + 'reviewlist');
+  const baseJobs = h._baseJobs || h.jobs;
+  const seedCount = clamp(Math.round(baseJobs / 26), 3, cap);
+  const cloud = helperTagCloud(helperId);
+  const domTags = cloud.length ? cloud.map(c => c.tag.id) : ['kind', 'ontime', 'careful'];
+  const dist = ratingDist(helperId);
+  // 별점 추출용 누적분포(분포와 정합)
+  const starPool = [];
+  dist.forEach(d => { for (let i = 0; i < Math.max(0, Math.min(40, d.count)); i++) starPool.push(d.star); });
+  const pickStar = () => starPool.length ? starPool[Math.floor(rnd() * starPool.length)] : 5;
+  const cats = h.cats && h.cats.length ? h.cats : ['etc'];
+  const seed = [];
+  const DAY0 = Math.floor(Date.now() / 86400000) * 86400000; // 당일 자정 기준 → 하루 단위로만 이동(렌더 간 불변)
+  let dayCursor = 2 + Math.floor(rnd() * 3);
+  for (let i = 0; i < seedCount; i++) {
+    const stars = i === 0 ? Math.max(4, pickStar()) : pickStar(); // 최신 1건은 4점 이상 보장(신뢰 첫인상)
+    // 주 태그: 지배 태그에서 가중 선택
+    const primary = domTags[Math.min(domTags.length - 1, Math.floor(Math.pow(rnd(), 1.5) * domTags.length))];
+    let text, tags;
+    if (stars >= 5) { const pool = REVIEW_CORPUS[primary] || REVIEW_CORPUS.kind; text = pool[Math.floor(rnd() * pool.length)];
+      tags = [primary]; if (rnd() < 0.5) { const t2 = domTags[Math.floor(rnd() * domTags.length)]; if (t2 !== primary) tags.push(t2); }
+    } else if (stars === 4) { text = REVIEW_MILD_4[Math.floor(rnd() * REVIEW_MILD_4.length)]; tags = [primary];
+    } else { text = REVIEW_MILD_3[Math.floor(rnd() * REVIEW_MILD_3.length)]; tags = []; }
+    const catId = cats[Math.floor(rnd() * cats.length)];
+    const reviewer = REVIEWER_INITIALS[Math.floor(rnd() * REVIEWER_INITIALS.length)] + '**';
+    seed.push({ mine: false, stars, text, tags, catId, at: DAY0 - dayCursor * 86400000, reviewer });
+    dayCursor += 1 + Math.floor(rnd() * 9);
+  }
+  // 병합: 내 실제 후기 먼저(최신), 그다음 시드 → 최신순 정렬
+  return mine.concat(seed).sort((a, b) => b.at - a.at).slice(0, cap);
+}
+
+/* 내(헬퍼로서의) 평판 — 헬퍼측 완료건 + 요청자 후기(theirs) 집계.
+   요청자가 나에게 남긴 실제 후기가 있으면 그것을 우선 노출. */
+function myHelperStats() {
+  const done = (history || []).filter(x => x.side === 'helper' && (x.status === 'settled' || x.status === 'resolved'));
+  const jobsCount = done.length;
+  let sum = 0, n = 0;
+  const received = [];
+  try {
+    (jobs || []).forEach(j => {
+      if (j.side === 'helper' && j.review && j.review.theirs) {
+        const t = j.review.theirs;
+        sum += t.stars; n += 1;
+        if (j.review.revealed) received.push({ mine: false, stars: t.stars, text: t.text || '', tags: (t.tags || []).slice(), catId: j.cat, at: t.at || j.at || Date.now(), reviewer: '요청자' });
+      }
+    });
+  } catch (e) {}
+  const rating = n ? +((sum + 4.9 * 5) / (n + 5)).toFixed(2) : null; // 5건 사전분포 완충
+  return { jobsCount, rating, ratedCount: n, received };
+}
+
 /* ── 제재 원장 ───────────────────────────────────────────────
    신고 → 안전팀 심사 → 등급별 제재. 정지된 헬퍼는 매칭 풀에서 즉시 빠진다. */
 let sanctions = load(LS.sanctions, {});   // helperId -> { warns, until, permanent, log:[] }
