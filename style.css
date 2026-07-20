@@ -36,6 +36,12 @@ button {
 button.primary { background: var(--gold); color: #0a0806; font-weight: 600; }
 button:active { transform: scale(0.97); }
 
+/* SENSE 주인공 하나: 화면 주 액션(등록·충전)은 full-width block로 위계 강제 */
+.form button.primary,
+#charge-btn { display: block; width: 100%; box-sizing: border-box; padding: 12px 16px; }
+/* 코인 충전 버튼 뒤 안내문구가 버튼 옆으로 흘러 겹치던 것 → 제 줄로 */
+#coins small { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; line-height: 1.5; }
+
 .section { margin-bottom: 24px; }
 .hidden { display: none; }
 
