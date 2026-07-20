@@ -334,6 +334,8 @@ function acceptTask(idx) {
     localStorage.setItem('p7_notebook', JSON.stringify(notebook));
   }
 
+  if (window.legionTrack) window.legionTrack('activate', { earn: netEarn, external: !!task.external });
+
   if (task._matchTimer) clearInterval(task._matchTimer);
   tasks.splice(idx, 1);
   localStorage.setItem('p7_tasks', JSON.stringify(tasks));
