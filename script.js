@@ -53,13 +53,36 @@ function errandLoopStrip() {
     const st = JSON.parse(localStorage.getItem('errand_streak') || '{}');
     const sc = st.count || 0;
     const day = JSON.parse(localStorage.getItem('errand_day_' + dayKey(0)) || '{"posts":0,"done":0}');
+    const yday = JSON.parse(localStorage.getItem('errand_day_' + dayKey(-1)) || '{"posts":0,"done":0}');
+    const acts = (day.posts || 0) + (day.done || 0);
+    const yacts = (yday.posts || 0) + (yday.done || 0);
+    const goal = 2;
+    const gPct = Math.min(100, Math.round(acts / goal * 100));
+    // 7d active spark
+    let spark = '';
+    try {
+      const vals = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = JSON.parse(localStorage.getItem('errand_day_' + dayKey(-i)) || '{"posts":0,"done":0}');
+        vals.push((d.posts || 0) + (d.done || 0));
+      }
+      const mx = Math.max.apply(null, vals.concat([1]));
+      spark = vals.map(n => {
+        const h = Math.max(3, Math.round(n / mx * 18));
+        return `<span style="display:inline-block;width:10px;height:${h}px;background:${n ? '#e0b552' : '#2a2438'};border-radius:2px;margin-right:2px;vertical-align:bottom"></span>`;
+      }).join('');
+    } catch (e) {}
     const end = new Date(); end.setHours(24, 0, 0, 0);
     const ms = Math.max(0, end - Date.now());
     const clock = Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm';
     const active = (typeof jobs !== 'undefined') ? jobs.filter(j => !isTerminal(j.status)).length : 0;
-    return `<div class="card" style="margin:10px 0;padding:10px;border:1px solid #2a2438;border-radius:12px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-      <span>🔥 ${sc}일</span><span>오늘 올림 ${day.posts || 0}</span><span>완료 ${day.done || 0}</span><span>진행 ${active}</span><span>리셋 ${clock}</span>
+    return `<div class="card" style="margin:10px 0;padding:10px;border:1px solid #2a2438;border-radius:12px;font-size:12px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span>🔥 ${sc}일</span><span>오늘 올림 ${day.posts || 0}</span><span>완료 ${day.done || 0}</span><span>목표 ${acts}/${goal}</span><span>전일 ${acts - yacts >= 0 ? '+' : ''}${acts - yacts}</span><span>진행 ${active}</span><span>리셋 ${clock}</span>
       <button type="button" class="ghost" style="margin-left:auto;padding:6px 10px" onclick="shareErrandBoard()">📤 보드 공유</button>
+      </div>
+      <div style="height:6px;background:#1c1826;border-radius:4px;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:${gPct}%;background:linear-gradient(90deg,#e0b552,#67e8f9)"></i></div>
+      <div style="margin-top:6px;line-height:18px">${spark} <span style="opacity:.55">7일 활동</span></div>
     </div>`;
   } catch (e) { return ''; }
 }
