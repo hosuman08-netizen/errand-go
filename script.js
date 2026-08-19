@@ -17,6 +17,7 @@ const ui = {
   hpTab: 'info',          // 헬퍼 프로필 모달 탭: info | reviews
   hpId: null,             // 현재 열린 헬퍼 id
   reviewsOpen: false,     // 후기 아코디언 펼침
+  dongCat: 'all',         // 동네 피드 칩
 };
 
 
@@ -212,8 +213,60 @@ function viewHome() {
   if (mine.length > 0 || pending.length > 0) {
     h += `<button class="ghost block mt16" onclick="go('post')">➕ 심부름 하나 더 올리기</button>`;
   }
+  h += dongFeedHtml();
   h += trustStrip();
   return h;
+}
+
+/* GOLD50 TOP5: 우리 동 최근 심부름 시드 피드. 견적 숫자 없음 · 입찰공식 불변. */
+const DONG_FEED_CHIPS = [
+  { id: 'move', label: '냉장고' },
+  { id: 'pest', label: '벌레' },
+  { id: 'wait', label: '줄서기' },
+  { id: 'delivery', label: '배달' },
+  { id: 'clean', label: '청소' },
+];
+const DONG_FEED = [
+  { id: 'df1', cat: 'move', sub: 'furni', title: '냉장고 옮김', desc: '냉장고 2층 → 1층. 두 명이면 좋아요.', who: '3동', ago: '12분' },
+  { id: 'df2', cat: 'pest', sub: 'catch', title: '바퀴벌레', desc: '화장실에 바퀴벌레 나왔어요. 지금.', who: '윗집', ago: '28분' },
+  { id: 'df3', cat: 'wait', sub: 'queue', title: '오픈런 줄서기', desc: '한정판 오픈런 대기 부탁해요.', who: '학생', ago: '1시간' },
+  { id: 'df4', cat: 'delivery', sub: 'store', title: '생수·우유', desc: '편의점 생수 2박스랑 우유.', who: '옆동', ago: '2시간' },
+  { id: 'df5', cat: 'clean', sub: 'waste', title: '분리수거', desc: '분리수거랑 대형 폐기물 내놓기.', who: '4층', ago: '어제' },
+];
+function dongFeedHtml() {
+  const cat = ui.dongCat || 'all';
+  const rows = DONG_FEED.filter(x => cat === 'all' || x.cat === cat);
+  const chips = [{ id: 'all', label: '전체' }].concat(DONG_FEED_CHIPS).map(c =>
+    `<button type="button" class="chip${cat === c.id ? ' on' : ''}" onclick="setDongCat('${c.id}')">${esc(c.label)}</button>`
+  ).join('');
+  const list = rows.map(x => {
+    const c = findCat(x.cat);
+    return `<div class="dong-row">
+      <div>
+        <div class="dong-title">${c.icon} ${esc(x.title)}</div>
+        <div class="dim sm">${esc(x.desc)}</div>
+        <div class="dim sm">${esc(x.who)} · ${esc(x.ago)} · 시드 글</div>
+      </div>
+      <button type="button" class="mini" onclick="postFromDong('${x.id}')">같은 일 올리기</button>
+    </div>`;
+  }).join('');
+  return `<section class="card dong-feed" id="dongFeed">
+    <div class="sec-title">우리 동 최근 심부름</div>
+    <div class="sub-chips">${chips}</div>
+    ${list || '<div class="dim sm">이 칩에 시드 글이 없어요.</div>'}
+    <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변.</div>
+  </section>`;
+}
+function setDongCat(id) { ui.dongCat = id; render(); }
+function postFromDong(id) {
+  const x = DONG_FEED.find(f => f.id === id);
+  if (!x) { toast('시드 글을 찾을 수 없어요'); return; }
+  ui.draft = {
+    cat: x.cat, sub: x.sub || null, desc: x.desc || '',
+    photoKey: null, priceMode: 'fixed', urgency: 'today',
+    cost: null, preferHelperId: null
+  };
+  go('post');
 }
 
 /* ── 추적 카드: 상태 · 타임라인 · 지도 · ETA · 헬퍼 · 액션 ─── */

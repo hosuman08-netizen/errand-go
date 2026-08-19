@@ -180,6 +180,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--g
 .tag-insure { font-size: 10px; color: var(--gold); background: rgba(197,164,110,.12); padding: 1px 6px; border-radius: 999px; }
 .week-card { border-color: rgba(197,164,110,.28); }
 .week-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
+.dong-feed { margin-top: 12px; }
+.dong-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 10px 0; font-size: 13px; }
+.dong-title { font-weight: 700; margin-bottom: 2px; }
 .bidcol { text-align: right; display: grid; gap: 4px; justify-items: end; }
 .bid { font-size: 16px; font-weight: 700; color: var(--gold); }
 .diff { font-size: 11px; margin-left: 3px; font-weight: 600; }
