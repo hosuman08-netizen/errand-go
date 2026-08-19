@@ -307,6 +307,12 @@ function availBadge(h) {
     `<span class="tag-sim">가상 데이터</span>`;
 }
 
+/* GOLD50 TOP3: 신뢰 레이어 — 가상 신원/보험 뱃지. 견적 숫자는 건드리지 않음. 실보험 아님. */
+function trustBadges(h) {
+  return (h.idVerified ? '<span class="verified" title="신분증·백그라운드 체크 시뮬">✓ 신원확인됨</span>' : '') +
+    '<span class="tag-insure" title="가상 크레딧 한도 보증 · 실보험·실배상 아님">🛡 보험시뮬</span>';
+}
+
 function applicantRow(job, a) {
   const h = findHelper(a.helperId);
   if (!h) return '';
@@ -316,7 +322,7 @@ function applicantRow(job, a) {
     <div class="ava">${h.avatar}</div>
     <div class="who">
       <div class="nm">${esc(h.name)} <span class="dim sm">${h.gender}·${h.age}</span>
-        ${h.idVerified ? '<span class="verified" title="신분증·백그라운드 체크 완료">✓ 인증</span>' : ''}
+        ${trustBadges(h)}
         ${availBadge(h)}
         ${isNew ? '<span class="tag-new">신규</span>' : ''}
         ${a.skilled ? `<span class="tag-skill">${esc(findCat(job.cat).name)} 경험</span>` : ''}
@@ -393,7 +399,7 @@ function helperStrip(job, h) {
     <div class="ava lg">${h.avatar}</div>
     <div class="who">
       <div class="nm">${esc(h.name)} <span class="dim sm">${h.gender}·${h.age}세</span>
-        ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}
+        ${trustBadges(h)}
         ${availBadge(h)}
         ${isSuspended(h.id) ? '<span class="tag-sus">활동정지</span>' : ''}</div>
       <div class="dim sm">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)}</div>
@@ -480,8 +486,9 @@ function doReview(jobId) {
 function trustStrip() {
   return `<div class="trust">
     <div class="t-item"><b>🔒 에스크로</b><span>심부름비는 앱이 보관하고 완료 증빙 제출 후에 지급됩니다.</span></div>
-    <div class="t-item"><b>✓ 신원확인</b><span>전 헬퍼 신분증·백그라운드 체크·자격 테스트 통과.</span></div>
-    <div class="t-item"><b>🛡 보증 ${GUARANTEE_COINS}c</b><span>플랫폼 과실로 인한 손해는 한도 내 보상합니다.</span></div>
+    <div class="t-item"><b>✓ 신원확인됨</b><span>전 헬퍼 신분증·백그라운드 체크·자격 테스트 시뮬. 실명 조회 아님.</span></div>
+    <div class="t-item"><b>🛡 보험시뮬 ${GUARANTEE_COINS}c</b><span>가상 크레딧 한도 보증. 실보험·실배상·실화폐 아님.</span></div>
+    <div class="t-item"><b>⏳ 지급 보류</b><span>${esc(POLICY.holdPeriod)} 푸터 에스크로 고지와 동일.</span></div>
     <div class="bypass">${esc(POLICY.bypassBan)}</div>
   </div>`;
 }
@@ -1164,7 +1171,7 @@ function showHelper(id) {
       <div class="hp-id">
         <div class="hp-name">${esc(h.name)} <span class="dim">${h.gender}·${h.age}세</span></div>
         <div class="hp-badges">${suspended ? `<span class="tier-badge susp">🚫 활동정지</span>` : tierBadge(tier)}
-          ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}
+          ${trustBadges(h)}
           ${availBadge(h)}</div>
         <div class="dim sm mt4">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)} · ${esc(h.joined)} 가입</div>
       </div>
@@ -1185,9 +1192,11 @@ function showHelper(id) {
       ${metricsGridHtml(m)}
       ${tagCloudHtml(id)}
       <div class="verify-list">
-        <div class="v-row done"><b>✓ 신분증 확인</b><span>실명 확인 완료</span></div>
+        <div class="v-row done"><b>✓ 신분증 확인</b><span>실명 확인 시뮬 · 실제 조회 아님</span></div>
         <div class="v-row done"><b>✓ 백그라운드 체크</b><span>${esc(h.bgCheck)}</span></div>
         <div class="v-row done"><b>✓ 헬퍼 자격 테스트</b><span>${h.quiz}점 통과</span></div>
+        <div class="v-row done"><b>🛡 보험 시뮬</b><span>가상 크레딧 한도 ${GUARANTEE_COINS}c · 실보험 아님</span></div>
+        <div class="v-row done"><b>⏳ 지급 보류</b><span>${esc(POLICY.holdPeriod)}</span></div>
       </div>
       <div class="stat-row">
         <div class="stat"><b>${rep.completed || 0}</b><span>내 요청 완료</span></div>
