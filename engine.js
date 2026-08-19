@@ -18,6 +18,7 @@ function workMinFor(job) {
 const LS = {
   jobs: 'p7v2_jobs', econ: 'p7v2_econ', reps: 'p7v2_reps',
   sanctions: 'p7v2_sanctions', history: 'p7v2_history', charges: 'p7v2_charges',
+  week: 'p7v2_week',
 };
 function load(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key)); return v === null || v === undefined ? fallback : v; }
@@ -344,6 +345,24 @@ function checkAutoSuspend(helperId) {
 /* ── 심부름 저장소 ──────────────────────────────────────────── */
 let jobs = load(LS.jobs, []);
 let history = load(LS.history, []);
+let weekSlots = load(LS.week, []);
+function saveWeek() { save(LS.week, weekSlots); }
+function weekOf(helperId) { return weekSlots.find(w => w.helperId === helperId && w.enabled) || null; }
+function setWeekSlot(slot) {
+  weekSlots = weekSlots.filter(w => w.helperId !== slot.helperId);
+  if (slot && slot.enabled) weekSlots.unshift(slot);
+  saveWeek();
+  return weekSlots;
+}
+function nextWeekLabel(weekday) {
+  const names = ['일', '월', '화', '수', '목', '금', '토'];
+  const w = ((weekday % 7) + 7) % 7;
+  const now = new Date();
+  let add = (w - now.getDay() + 7) % 7;
+  if (add === 0) add = 7;
+  const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add);
+  return names[w] + ' ' + (dt.getMonth() + 1) + '/' + dt.getDate();
+}
 function saveJobs() {
   // 함수·타이머·큰 blob은 저장하지 않는다(_로 시작하는 필드 제외)
   save(LS.jobs, jobs.map(j => {
@@ -382,7 +401,13 @@ function eligibleHelpers(job) {
       return { h, pos: p, distKm, etaMin, skilled };
     })
     .filter(c => c.distKm <= mode.radiusKm)
-    .sort((a, b) => (b.skilled - a.skilled) || (a.etaMin - b.etaMin));
+    .sort((a, b) => {
+      if (job.preferHelperId) {
+        if (a.h.id === job.preferHelperId) return -1;
+        if (b.h.id === job.preferHelperId) return 1;
+      }
+      return (b.skilled - a.skilled) || (a.etaMin - b.etaMin);
+    });
 }
 
 /* ── 심부름 생성 ─────────────────────────────────────────────── */
@@ -394,6 +419,7 @@ function createJob(input) {
     photoKey: input.photoKey || null, photoHash: input.photoKey ? hashOf(getBlob(input.photoKey) || id) : null,
     cost: input.cost, priceMode: input.priceMode, urgency: input.urgency,
     lat: input.lat, lng: input.lng,
+    preferHelperId: input.preferHelperId || null,
     createdAt: Date.now(), status: 'screening', statusAt: Date.now(),
     applicants: [], helperId: null, agreedCost: null,
     chat: [], reports: [], events: [],
@@ -833,6 +859,10 @@ function tick() {
       }
       case 'open': {
         const cands = eligibleHelpers(job);
+        if (job.preferHelperId && job.applicants.length === 0) {
+          const pref = cands.find(c => c.h.id === job.preferHelperId);
+          if (pref && addApplicant(job, pref)) changed = true;
+        }
         if (job.matchMode === 'broadcast') {
           /* GOLD50 TOP1: Thumbtack/숨고 — 견적 3장 비교. 선착순 자동배정 금지. */
           const cap = 3;

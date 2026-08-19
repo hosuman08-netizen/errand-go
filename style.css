@@ -178,6 +178,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--g
 .tag-avail.on { color: var(--ok); background: rgba(127,185,138,.14); border-color: transparent; }
 .tag-sim { font-size: 10px; color: var(--dim); opacity: .8; padding: 1px 6px; }
 .tag-insure { font-size: 10px; color: var(--gold); background: rgba(197,164,110,.12); padding: 1px 6px; border-radius: 999px; }
+.week-card { border-color: rgba(197,164,110,.28); }
+.week-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
 .bidcol { text-align: right; display: grid; gap: 4px; justify-items: end; }
 .bid { font-size: 16px; font-weight: 700; color: var(--gold); }
 .diff { font-size: 11px; margin-left: 3px; font-weight: 600; }

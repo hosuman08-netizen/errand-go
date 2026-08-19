@@ -11,7 +11,7 @@ const ui = {
   modal: null,
   loc: null,
   locAccuracy: null,
-  draft: { cat: null, sub: null, desc: '', photoKey: null, priceMode: 'fixed', urgency: 'today', cost: null },
+  draft: { cat: null, sub: null, desc: '', photoKey: null, priceMode: 'fixed', urgency: 'today', cost: null, preferHelperId: null },
   queueCat: 'all',        // 헬퍼 콜 큐 카테고리 필터
   queueSort: 'near',      // near | pay | urgent
   hpTab: 'info',          // 헬퍼 프로필 모달 탭: info | reviews
@@ -197,7 +197,7 @@ function viewHome() {
   const mine = jobs.filter(j => j.side === 'requester' && !isTerminal(j.status));
   const pending = jobs.filter(j => j.side === 'requester' && isTerminal(j.status) && j.review && !j.review.mine).slice(0, 3);
 
-  let h = loop;
+  let h = loop + weekStrip();
   if (mine.length === 0 && pending.length === 0) {
     h += `<div class="empty">
       <div class="empty-icon">🧺</div>
@@ -496,6 +496,68 @@ function trustStrip() {
 /* ============================================================
    요청자 — 심부름 올리기
    ============================================================ */
+function weekStrip() {
+  const live = (weekSlots || []).filter(w => w.enabled);
+  if (!live.length) return '';
+  return `<section class="card week-card">
+    <div class="sec-title">주1회 가상 스케줄</div>
+    ${live.map(w => {
+      const h = findHelper(w.helperId);
+      const cat = w.cat ? findCat(w.cat) : null;
+      return `<div class="week-row">
+        <div><b>${h ? h.avatar + ' ' + esc(h.name) : '헬퍼'}</b>
+          <span class="dim sm">매주 ${esc(nextWeekLabel(w.weekday))}${cat ? ' · ' + esc(cat.name) : ''}</span></div>
+        <button class="mini" onclick="reRequestHelper('${w.helperId}')">이번 주 재요청</button>
+      </div>`;
+    }).join('')}
+    <div class="dim sm">가상 예약 · 실방문·실결제 아님. 견적 숫자는 이전 합의가를 복사할 뿐 조작하지 않습니다.</div>
+  </section>`;
+}
+
+function reRequestFrom(jobId) {
+  const job = findJob(jobId);
+  if (!job || !job.helperId) { toast('재요청할 헬퍼가 없어요'); return; }
+  if (isSuspended(job.helperId)) { toast('이 헬퍼는 활동정지 상태입니다', 'bad'); return; }
+  ui.draft = {
+    cat: job.cat, sub: job.sub || null, desc: job.desc || '',
+    photoKey: null, priceMode: job.priceMode || 'fixed',
+    urgency: 'today', cost: job.agreedCost || job.cost,
+    preferHelperId: job.helperId
+  };
+  closeModal();
+  go('post');
+}
+
+function reRequestHelper(helperId) {
+  if (isSuspended(helperId)) { toast('이 헬퍼는 활동정지 상태입니다', 'bad'); return; }
+  const last = jobs.find(j => j.helperId === helperId && (j.status === 'settled' || j.status === 'resolved'));
+  if (last) { reRequestFrom(last.id); return; }
+  ui.draft.preferHelperId = helperId;
+  closeModal();
+  go('post');
+}
+
+function toggleWeekSlot(helperId) {
+  const cur = weekOf(helperId);
+  if (cur) {
+    setWeekSlot({ helperId: helperId, enabled: false });
+    toast('주1회 가상 스케줄 해제');
+  } else {
+    const last = jobs.find(j => j.helperId === helperId) || {};
+    setWeekSlot({
+      helperId: helperId,
+      cat: last.cat || ui.draft.cat || 'delivery',
+      sub: last.sub || null,
+      desc: last.desc || '',
+      cost: last.agreedCost || last.cost || null,
+      weekday: new Date().getDay(),
+      enabled: true
+    });
+    toast('주1회 가상 스케줄 · 실방문 아님');
+  }
+  if (ui.hpId) showHelper(ui.hpId); else render();
+}
+
 function viewPost() {
   const d = ui.draft;
   const cat = d.cat ? findCat(d.cat) : null;
@@ -505,7 +567,15 @@ function viewPost() {
   const cost = d.cost === null ? rec : d.cost;
   const workMin = sub ? sub.wm : (cat ? (WORK_MIN[cat.id] || 25) : 25);
 
+  const pref = d.preferHelperId ? findHelper(d.preferHelperId) : null;
   return `
+  ${pref ? `<section class="card week-card">
+    <div class="sec-title">같은 헬퍼 재요청</div>
+    <div class="week-row">
+      <div><b>${pref.avatar} ${esc(pref.name)}</b> <span class="tag-sim">가상 · 자동배정 아님</span></div>
+    </div>
+    <div class="dim sm">견적 3장에 이 헬퍼가 먼저 뜹니다. 입찰 공식은 그대로 · 숫자 조작 없음.</div>
+  </section>` : ''}
   <section class="card">
     <h2 class="sec-title">1 · 무슨 일인가요</h2>
     <div class="cat-grid">${CATEGORIES.map(c =>
@@ -612,8 +682,9 @@ function doPost() {
   createJob({
     cat: d.cat, sub: d.sub, desc: desc.trim(), photoKey: d.photoKey, cost,
     priceMode: d.priceMode, urgency: d.urgency, lat: ui.loc.lat, lng: ui.loc.lng,
+    preferHelperId: d.preferHelperId || null,
   });
-  ui.draft = { cat: null, sub: null, desc: '', photoKey: null, priceMode: 'fixed', urgency: 'today', cost: null };
+  ui.draft = { cat: null, sub: null, desc: '', photoKey: null, priceMode: 'fixed', urgency: 'today', cost: null, preferHelperId: null };
   toast(`${cost}c 예치 완료 · 자동 심사 후 알림이 발송됩니다`, 'ok');
   go('home');
 }
@@ -725,7 +796,10 @@ function viewHistory() {
       ${j.cancelInfo ? `<div class="dim sm">환불 ${j.cancelInfo.refunded}c${j.cancelInfo.fee ? ` · 공제 ${j.cancelInfo.fee}c` : ''}${j.cancelInfo.why ? ` · ${esc(j.cancelInfo.why)}` : ''}</div>` : ''}
       ${j.dispute && j.dispute.verdict ? `<div class="verdict">⚖️ ${esc(j.dispute.verdict.why)}</div>` : ''}
       ${j.review ? reviewBlock(j, j.review) : ''}
-      ${s && s.ratio >= 1 ? `<button class="ghost block mt8" onclick="shareJob('${j.id}')">공유하기</button>` : ''}
+      ${j.helperId && (j.status === 'settled' || j.status === 'resolved') ? `<div class="row-2 mt8">
+        <button class="ghost" onclick="reRequestFrom('${j.id}')">같은 헬퍼 재요청</button>
+        ${s && s.ratio >= 1 ? `<button class="ghost" onclick="shareJob('${j.id}')">공유하기</button>` : '<span></span>'}
+      </div>` : (s && s.ratio >= 1 ? `<button class="ghost block mt8" onclick="shareJob('${j.id}')">공유하기</button>` : '')}
     </section>`;
   }).join('');
 }
@@ -1203,6 +1277,11 @@ function showHelper(id) {
         <div class="stat"><b>${rep.count || 0}</b><span>내가 준 평가</span></div>
         <div class="stat"><b>${(disputeRate(id) * 100).toFixed(0)}%</b><span>분쟁률</span></div>
       </div>
+      ${suspended ? '' : `<div class="row-2 mt8">
+        <button class="primary" onclick="reRequestHelper('${id}')">이 헬퍼 재요청</button>
+        <button class="ghost" onclick="toggleWeekSlot('${id}')">${weekOf(id) ? '주1회 해제' : '주1회 가상 스케줄'}</button>
+      </div>
+      <div class="dim sm">가상 재요청 · 실방문 없음. 견적 공식 불변.</div>`}
       ${suspended ? `<div class="sanction">🚫 현재 ${s.permanent ? '영구' : '30일'} 활동정지 — 매칭 풀에서 제외됨</div>` : ''}
       ${(s.log || []).length ? `<div class="sanction-log"><b>제재 이력</b>${s.log.map(l =>
         `<div>${new Date(l.at).toLocaleDateString('ko-KR')} · ${esc(SANCTIONS[l.kind] ? SANCTIONS[l.kind].label : l.kind)} — ${esc(l.why)}</div>`).join('')}</div>` : ''}
@@ -1423,7 +1502,8 @@ function showResult(job, s) {
       <div class="dim">${h ? esc(h.name) + ' 헬퍼에게 지급' : '지급 완료'}</div>
       ${s.bonus ? `<div class="r-bonus">완료 보너스 +${s.bonus}c<div class="dim sm">확률 ${BONUS_ODDS_LABEL}</div></div>` : ''}
       <div class="dim sm mt8">후기는 양측이 모두 작성하거나 기한이 지나면 동시에 공개됩니다.</div>
-      <button class="primary block" onclick="shareJob('${job.id}')">공유하기</button>
+      ${h ? `<button class="primary block" onclick="reRequestFrom('${job.id}')">같은 헬퍼 재요청</button>` : ''}
+      <button class="ghost block" onclick="shareJob('${job.id}')">공유하기</button>
     </div>`);
 }
 function shareJob(jobId) {
