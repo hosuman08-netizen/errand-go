@@ -295,9 +295,20 @@ function dongHideCatCounts() {
   return counts;
 }
 function setDongHideCat(id) {
+  const flashing = document.querySelector('#dongHideCats button.chip.gold-flash');
+  if (flashing) {
+    try { clearTimeout(flashing._gfT); } catch (e) {}
+    flashing._gfT = 0;
+    flashing.classList.remove('gold-flash');
+  }
   ui.dongHideCat = ui.dongHideCat === id ? '' : id;
   if (ui.dongHideCat) ui.dongShowHidden = true;
   render();
+  if (flashing) {
+    const keep = document.getElementById('dongHideCat-' + (ui.dongHideCat || id))
+      || document.querySelector('#dongHideCats button.chip');
+    try { if (keep && keep.focus) keep.focus(); } catch (e2) {}
+  }
 }
 function getDongHideCatsFold() {
   try { return localStorage.getItem('p7_dong_hide_cats_fold') === '1'; } catch (e) { return false; }
