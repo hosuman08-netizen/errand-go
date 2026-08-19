@@ -294,13 +294,16 @@ function dongHideCatCounts() {
   });
   return counts;
 }
-function setDongHideCat(id) {
+function killDongGoldFlash() {
   const flashing = document.querySelector('#dongHideCats button.chip.gold-flash');
-  if (flashing) {
-    try { clearTimeout(flashing._gfT); } catch (e) {}
-    flashing._gfT = 0;
-    flashing.classList.remove('gold-flash');
-  }
+  if (!flashing) return null;
+  try { clearTimeout(flashing._gfT); } catch (e) {}
+  flashing._gfT = 0;
+  flashing.classList.remove('gold-flash');
+  return flashing;
+}
+function setDongHideCat(id) {
+  const flashing = killDongGoldFlash();
   ui.dongHideCat = ui.dongHideCat === id ? '' : id;
   if (ui.dongHideCat) ui.dongShowHidden = true;
   render();
@@ -314,6 +317,7 @@ function getDongHideCatsFold() {
   try { return localStorage.getItem('p7_dong_hide_cats_fold') === '1'; } catch (e) { return false; }
 }
 function toggleDongHideCatsFold() {
+  killDongGoldFlash();
   const next = !getDongHideCatsFold();
   try { localStorage.setItem('p7_dong_hide_cats_fold', next ? '1' : '0'); } catch (e) {}
   ui.dongHideCatsFold = next;
