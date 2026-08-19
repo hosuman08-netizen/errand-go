@@ -264,6 +264,11 @@ function toggleDongHide(id) {
   render();
 }
 function setDongShowHidden(on) { ui.dongShowHidden = !!on; render(); }
+function unhideAllDong() {
+  try { localStorage.setItem('p7_dong_hide', '[]'); } catch (e) {}
+  ui.dongShowHidden = false;
+  render();
+}
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
   const pin = getDongPin();
@@ -295,9 +300,10 @@ function dongFeedHtml() {
   }).join('');
   const hideBar = hide.length
     ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH ? 'false' : 'true'})">${showH ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
+      + `<button type="button" class="mini" id="dongUnhideAll" onclick="unhideAllDong()">전부 되돌리기</button>`
     : '';
   return `<section class="card dong-feed" id="dongFeed">
-    <div class="sec-title">우리 동 최근 심부름</div>
+    <div class="sec-title">우리 동 최근 심부름 <span class="chip static" id="dongHideChip">숨김 <b>${hide.length}</b></span></div>
     <div class="sub-chips">${chips}</div>
     ${list || '<div class="dim sm">이 칩에 시드 글이 없어요.</div>'}
     ${hideBar}
