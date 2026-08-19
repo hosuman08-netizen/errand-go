@@ -321,6 +321,13 @@ function unfoldDongHideCats(ev) {
     first.classList.remove('gold-flash');
     void first.offsetWidth;
     first.classList.add('gold-flash');
+    function keepGf() {
+      first.classList.remove('gold-flash');
+      try { if (first.focus) first.focus(); } catch (e) {}
+    }
+    first.addEventListener('animationend', keepGf, { once: true });
+    try { clearTimeout(first._gfT); } catch (e2) {}
+    first._gfT = setTimeout(keepGf, 700);
   }
 }
 function dongFeedHtml() {
