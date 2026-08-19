@@ -317,6 +317,7 @@ function dongFeedHtml() {
   const catsFold = getDongHideCatsFold();
   ui.dongHideCatsFold = catsFold;
   const hideCounts = dongHideCatCounts();
+  const hideCatN = DONG_FEED_CHIPS.filter(c => hideCounts[c.id]).length;
   const rows = DONG_FEED.filter(x => {
     const hid = hide.indexOf(x.id) >= 0;
     if (hideCat) return hid && x.cat === hideCat;
@@ -354,7 +355,7 @@ function dongFeedHtml() {
     ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH && !hideCat ? 'false' : 'true'})">${showH && !hideCat ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
       + (hideCat ? `<button type="button" class="mini" id="dongUnhideCat" onclick="unhideDongCat('${hideCat}')">이 카테 되돌리기</button>` : '')
       + `<button type="button" class="mini" id="dongUnhideAll" onclick="unhideAllDong()">전부 되돌리기</button>`
-      + `<button type="button" class="mini${catsFold ? '' : ' on'}" id="dongHideCatsFold" onclick="toggleDongHideCatsFold()">${catsFold ? '숨김 카테' : '카테 접기'}</button>`
+      + `<button type="button" class="mini${catsFold ? '' : ' on'}" id="dongHideCatsFold" onclick="toggleDongHideCatsFold()">${catsFold ? '숨김 카테 <b id="dongHideCatsN">' + hideCatN + '</b>' : '카테 접기'}</button>`
     : '';
   return `<section class="card dong-feed" id="dongFeed">
     <div class="sec-title">우리 동 최근 심부름 <span class="chip static" id="dongHideChip">숨김 <b>${hide.length}</b></span></div>
