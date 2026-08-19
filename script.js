@@ -271,6 +271,20 @@ function unhideAllDong() {
   ui.dongHideCat = '';
   render();
 }
+function unhideDongCat(id) {
+  if (!id) return;
+  try {
+    const hide = getDongHide();
+    const next = hide.filter(hid => {
+      const x = DONG_FEED.find(f => f.id === hid);
+      return !x || x.cat !== id;
+    });
+    localStorage.setItem('p7_dong_hide', JSON.stringify(next));
+  } catch (e) {}
+  ui.dongHideCat = '';
+  if (!getDongHide().length) ui.dongShowHidden = false;
+  render();
+}
 function dongHideCatCounts() {
   const hide = getDongHide();
   const counts = {};
@@ -326,6 +340,7 @@ function dongFeedHtml() {
   }).join('');
   const hideBar = hide.length
     ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH && !hideCat ? 'false' : 'true'})">${showH && !hideCat ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
+      + (hideCat ? `<button type="button" class="mini" id="dongUnhideCat" onclick="unhideDongCat('${hideCat}')">이 카테 되돌리기</button>` : '')
       + `<button type="button" class="mini" id="dongUnhideAll" onclick="unhideAllDong()">전부 되돌리기</button>`
     : '';
   return `<section class="card dong-feed" id="dongFeed">
