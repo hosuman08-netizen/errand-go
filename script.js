@@ -18,6 +18,7 @@ const ui = {
   hpId: null,             // 현재 열린 헬퍼 id
   reviewsOpen: false,     // 후기 아코디언 펼침
   dongCat: 'all',         // 동네 피드 칩
+  dongShowHidden: false,  // 숨긴 시드 글 보기
 };
 
 
@@ -243,10 +244,33 @@ function toggleDongPin(id) {
   } catch (e) {}
   render();
 }
+function getDongHide() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('p7_dong_hide') || '[]');
+    return Array.isArray(raw) ? raw.filter(x => typeof x === 'string') : [];
+  } catch (e) { return []; }
+}
+function toggleDongHide(id) {
+  try {
+    const hide = getDongHide();
+    const i = hide.indexOf(id);
+    if (i >= 0) hide.splice(i, 1);
+    else {
+      hide.push(id);
+      if (getDongPin() === id) localStorage.setItem('p7_dong_pin', '');
+    }
+    localStorage.setItem('p7_dong_hide', JSON.stringify(hide));
+  } catch (e) {}
+  render();
+}
+function setDongShowHidden(on) { ui.dongShowHidden = !!on; render(); }
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
   const pin = getDongPin();
+  const hide = getDongHide();
+  const showH = !!ui.dongShowHidden;
   const rows = DONG_FEED.filter(x => cat === 'all' || x.cat === cat)
+    .filter(x => showH || hide.indexOf(x.id) < 0)
     .slice()
     .sort((a, b) => (a.id === pin ? -1 : b.id === pin ? 1 : 0));
   const chips = [{ id: 'all', label: '전체' }].concat(DONG_FEED_CHIPS).map(c =>
@@ -255,23 +279,29 @@ function dongFeedHtml() {
   const list = rows.map(x => {
     const c = findCat(x.cat);
     const on = x.id === pin;
-    return `<div class="dong-row${on ? ' pinned' : ''}" id="dong-${x.id}">
+    const hid = hide.indexOf(x.id) >= 0;
+    return `<div class="dong-row${on ? ' pinned' : ''}${hid ? ' hidden-row' : ''}" id="dong-${x.id}">
       <div>
-        <div class="dong-title">${c.icon} ${esc(x.title)}${on ? ' · 핀' : ''}</div>
+        <div class="dong-title">${c.icon} ${esc(x.title)}${on ? ' · 핀' : ''}${hid ? ' · 숨김' : ''}</div>
         <div class="dim sm">${esc(x.desc)}</div>
         <div class="dim sm">${esc(x.who)} · ${esc(x.ago)} · 시드 글</div>
       </div>
       <div class="bidcol">
         <button type="button" class="mini${on ? ' on' : ''}" onclick="toggleDongPin('${x.id}')">${on ? '핀됨' : '핀'}</button>
+        <button type="button" class="mini${hid ? ' on' : ''}" onclick="toggleDongHide('${x.id}')">${hid ? '되돌리기' : '숨김'}</button>
         <button type="button" class="mini" onclick="postFromDong('${x.id}')">같은 일 올리기</button>
       </div>
     </div>`;
   }).join('');
+  const hideBar = hide.length
+    ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH ? 'false' : 'true'})">${showH ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
+    : '';
   return `<section class="card dong-feed" id="dongFeed">
     <div class="sec-title">우리 동 최근 심부름</div>
     <div class="sub-chips">${chips}</div>
     ${list || '<div class="dim sm">이 칩에 시드 글이 없어요.</div>'}
-    <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변. 핀은 이 기기만.</div>
+    ${hideBar}
+    <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변. 핀·숨김은 이 기기만.</div>
   </section>`;
 }
 function setDongCat(id) { ui.dongCat = id; render(); }
