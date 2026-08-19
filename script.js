@@ -20,7 +20,7 @@ const ui = {
   dongCat: 'all',         // 동네 피드 칩
   dongShowHidden: false,  // 숨긴 시드 글 보기
   dongHideCat: '',        // 숨김 카테고리 칩
-  dongHideCatsFold: false // 숨김 카테칩 접힘
+  dongHideCatsFold: false // 숨김 카테칩 접힘 · LS p7_dong_hide_cats_fold
 };
 
 
@@ -299,8 +299,13 @@ function setDongHideCat(id) {
   if (ui.dongHideCat) ui.dongShowHidden = true;
   render();
 }
+function getDongHideCatsFold() {
+  try { return localStorage.getItem('p7_dong_hide_cats_fold') === '1'; } catch (e) { return false; }
+}
 function toggleDongHideCatsFold() {
-  ui.dongHideCatsFold = !ui.dongHideCatsFold;
+  const next = !getDongHideCatsFold();
+  try { localStorage.setItem('p7_dong_hide_cats_fold', next ? '1' : '0'); } catch (e) {}
+  ui.dongHideCatsFold = next;
   render();
 }
 function dongFeedHtml() {
@@ -309,7 +314,8 @@ function dongFeedHtml() {
   const hide = getDongHide();
   const hideCat = ui.dongHideCat || '';
   const showH = !!ui.dongShowHidden || !!hideCat;
-  const catsFold = !!ui.dongHideCatsFold;
+  const catsFold = getDongHideCatsFold();
+  ui.dongHideCatsFold = catsFold;
   const hideCounts = dongHideCatCounts();
   const rows = DONG_FEED.filter(x => {
     const hid = hide.indexOf(x.id) >= 0;
