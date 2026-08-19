@@ -469,6 +469,11 @@ button.mini.on { background: var(--gold); color: #0a0806; border-color: var(--go
 
 .sub-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
 #dongHideCats .chip:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
+#dongHideCats .chip.gold-flash { animation: goldFlash .7s var(--ease, ease-out); }
+@keyframes goldFlash {
+  0% { box-shadow: 0 0 0 3px var(--gold); background: var(--gold); color: #0a0806; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
 
 /* 세부유형 배지 (카테고리 뱃지 안) */
 .sub-b { color: var(--gold); background: rgba(197,164,110,.12); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 2px; }

@@ -317,6 +317,11 @@ function unfoldDongHideCats(ev) {
   const first = document.querySelector('#dongHideCats button.chip');
   if (first && first.focus) first.focus();
   if (first && first.scrollIntoView) first.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (first) {
+    first.classList.remove('gold-flash');
+    void first.offsetWidth;
+    first.classList.add('gold-flash');
+  }
 }
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
