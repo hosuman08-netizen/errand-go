@@ -20,6 +20,7 @@ const ui = {
   dongCat: 'all',         // 동네 피드 칩
   dongShowHidden: false,  // 숨긴 시드 글 보기
   dongHideCat: '',        // 숨김 카테고리 칩
+  dongHideCatsFold: false // 숨김 카테칩 접힘
 };
 
 
@@ -298,12 +299,17 @@ function setDongHideCat(id) {
   if (ui.dongHideCat) ui.dongShowHidden = true;
   render();
 }
+function toggleDongHideCatsFold() {
+  ui.dongHideCatsFold = !ui.dongHideCatsFold;
+  render();
+}
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
   const pin = getDongPin();
   const hide = getDongHide();
   const hideCat = ui.dongHideCat || '';
   const showH = !!ui.dongShowHidden || !!hideCat;
+  const catsFold = !!ui.dongHideCatsFold;
   const hideCounts = dongHideCatCounts();
   const rows = DONG_FEED.filter(x => {
     const hid = hide.indexOf(x.id) >= 0;
@@ -315,7 +321,7 @@ function dongFeedHtml() {
   const chips = [{ id: 'all', label: '전체' }].concat(DONG_FEED_CHIPS).map(c =>
     `<button type="button" class="chip${cat === c.id ? ' on' : ''}" onclick="setDongCat('${c.id}')">${esc(c.label)}</button>`
   ).join('');
-  const hideCatChips = hide.length
+  const hideCatChips = hide.length && !catsFold
     ? `<div class="sub-chips" id="dongHideCats">` +
       DONG_FEED_CHIPS.filter(c => hideCounts[c.id]).map(c =>
         `<button type="button" class="chip${hideCat === c.id ? ' on' : ''}" id="dongHideCat-${c.id}" onclick="setDongHideCat('${c.id}')">${esc(c.label)} <b>${hideCounts[c.id]}</b></button>`
@@ -342,6 +348,7 @@ function dongFeedHtml() {
     ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH && !hideCat ? 'false' : 'true'})">${showH && !hideCat ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
       + (hideCat ? `<button type="button" class="mini" id="dongUnhideCat" onclick="unhideDongCat('${hideCat}')">이 카테 되돌리기</button>` : '')
       + `<button type="button" class="mini" id="dongUnhideAll" onclick="unhideAllDong()">전부 되돌리기</button>`
+      + `<button type="button" class="mini${catsFold ? '' : ' on'}" id="dongHideCatsFold" onclick="toggleDongHideCatsFold()">${catsFold ? '숨김 카테' : '카테 접기'}</button>`
     : '';
   return `<section class="card dong-feed" id="dongFeed">
     <div class="sec-title">우리 동 최근 심부름 <span class="chip static" id="dongHideChip">숨김 <b>${hide.length}</b></span></div>
