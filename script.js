@@ -233,28 +233,45 @@ const DONG_FEED = [
   { id: 'df4', cat: 'delivery', sub: 'store', title: '생수·우유', desc: '편의점 생수 2박스랑 우유.', who: '옆동', ago: '2시간' },
   { id: 'df5', cat: 'clean', sub: 'waste', title: '분리수거', desc: '분리수거랑 대형 폐기물 내놓기.', who: '4층', ago: '어제' },
 ];
+function getDongPin() {
+  try { return localStorage.getItem('p7_dong_pin') || ''; } catch (e) { return ''; }
+}
+function toggleDongPin(id) {
+  try {
+    const cur = getDongPin();
+    localStorage.setItem('p7_dong_pin', cur === id ? '' : id);
+  } catch (e) {}
+  render();
+}
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
-  const rows = DONG_FEED.filter(x => cat === 'all' || x.cat === cat);
+  const pin = getDongPin();
+  const rows = DONG_FEED.filter(x => cat === 'all' || x.cat === cat)
+    .slice()
+    .sort((a, b) => (a.id === pin ? -1 : b.id === pin ? 1 : 0));
   const chips = [{ id: 'all', label: '전체' }].concat(DONG_FEED_CHIPS).map(c =>
     `<button type="button" class="chip${cat === c.id ? ' on' : ''}" onclick="setDongCat('${c.id}')">${esc(c.label)}</button>`
   ).join('');
   const list = rows.map(x => {
     const c = findCat(x.cat);
-    return `<div class="dong-row">
+    const on = x.id === pin;
+    return `<div class="dong-row${on ? ' pinned' : ''}" id="dong-${x.id}">
       <div>
-        <div class="dong-title">${c.icon} ${esc(x.title)}</div>
+        <div class="dong-title">${c.icon} ${esc(x.title)}${on ? ' · 핀' : ''}</div>
         <div class="dim sm">${esc(x.desc)}</div>
         <div class="dim sm">${esc(x.who)} · ${esc(x.ago)} · 시드 글</div>
       </div>
-      <button type="button" class="mini" onclick="postFromDong('${x.id}')">같은 일 올리기</button>
+      <div class="bidcol">
+        <button type="button" class="mini${on ? ' on' : ''}" onclick="toggleDongPin('${x.id}')">${on ? '핀됨' : '핀'}</button>
+        <button type="button" class="mini" onclick="postFromDong('${x.id}')">같은 일 올리기</button>
+      </div>
     </div>`;
   }).join('');
   return `<section class="card dong-feed" id="dongFeed">
     <div class="sec-title">우리 동 최근 심부름</div>
     <div class="sub-chips">${chips}</div>
     ${list || '<div class="dim sm">이 칩에 시드 글이 없어요.</div>'}
-    <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변.</div>
+    <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변. 핀은 이 기기만.</div>
   </section>`;
 }
 function setDongCat(id) { ui.dongCat = id; render(); }
