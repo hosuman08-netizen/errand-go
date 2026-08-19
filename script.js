@@ -314,6 +314,8 @@ function unfoldDongHideCats(ev) {
   try { localStorage.setItem('p7_dong_hide_cats_fold', '0'); } catch (e) {}
   ui.dongHideCatsFold = false;
   render();
+  const first = document.querySelector('#dongHideCats button.chip');
+  if (first && first.focus) first.focus();
 }
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';

@@ -468,6 +468,7 @@ button.mini.on { background: var(--gold); color: #0a0806; border-color: var(--go
 .chip.static { cursor: default; background: rgba(197,164,110,.08); color: var(--gold); border-color: var(--line); }
 
 .sub-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+#dongHideCats .chip:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* 세부유형 배지 (카테고리 뱃지 안) */
 .sub-b { color: var(--gold); background: rgba(197,164,110,.12); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 2px; }
