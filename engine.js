@@ -834,13 +834,14 @@ function tick() {
       case 'open': {
         const cands = eligibleHelpers(job);
         if (job.matchMode === 'broadcast') {
-          /* 즉시형: 가장 먼저 수락한 1명 자동 배정 (선착순) */
-          const first = cands.slice().sort((a, b) => a.h.respondSec - b.h.respondSec)[0];
-          if (first && age >= first.h.respondSec) {
-            pushEvent(job, `${first.h.name} 이(가) 가장 먼저 수락 — 선착순 자동 배정`);
-            assignHelper(job, first.h.id, job.cost);
-            changed = true;
-          } else if (!first || Date.now() >= job.window.endsAt) {
+          /* GOLD50 TOP1: Thumbtack/숨고 — 견적 3장 비교. 선착순 자동배정 금지. */
+          const cap = 3;
+          cands.forEach(c => {
+            if (age >= c.h.respondSec && job.applicants.length < cap) {
+              if (addApplicant(job, c)) changed = true;
+            }
+          });
+          if (Date.now() >= job.window.endsAt && job.applicants.length === 0) {
             expireJob(job); changed = true;
           }
         } else {

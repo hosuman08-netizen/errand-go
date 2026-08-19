@@ -273,11 +273,16 @@ function openBody(job) {
 
   if (job.matchMode === 'broadcast') {
     const n = eligibleHelpers(job).length;
+    const apps = job.applicants || [];
+    const list = apps.length === 0
+      ? `<div class="dim sm center pad8">가상 견적 대기 중… ${fmtSec(left)} 남음<br>최대 3장 비교 · 실결제 아님</div>`
+      : apps.map(a => applicantRow(job, a)).join('');
     return `<div class="state-note">
       <b>${mode.label}</b> · ${esc(mode.rule)}
       <div class="bar mt8"><i style="width:${pct}%"></i></div>
-      <div class="dim sm mt4">반경 ${mode.radiusKm}km 헬퍼 <b>${n}명</b>에게 알림 발송됨 · 수락 대기 ${fmtSec(left)}</div>
+      <div class="dim sm mt4">반경 ${mode.radiusKm}km 헬퍼 <b>${n}명</b> · 견적 ${apps.length}/3장 · 시뮬 ${fmtSec(left)}</div>
     </div>
+    <div class="applicants">${list}</div>
     <button class="ghost block mt8" onclick="doCancel('${job.id}')">공고 취소 (전액 환불)</button>`;
   }
 
@@ -295,6 +300,13 @@ function openBody(job) {
   <button class="ghost block mt8" onclick="doCancel('${job.id}')">공고 취소 (전액 환불)</button>`;
 }
 
+function availBadge(h) {
+  const w = helperAvailWin(h);
+  const on = helperAvailNow(h);
+  return `<span class="tag-avail${on ? ' on' : ''}" title="시드 가용창 · 실시간 위치 아님">${on ? '지금 가용' : '가용창'} ${w.label}</span>` +
+    `<span class="tag-sim">가상 데이터</span>`;
+}
+
 function applicantRow(job, a) {
   const h = findHelper(a.helperId);
   if (!h) return '';
@@ -305,6 +317,7 @@ function applicantRow(job, a) {
     <div class="who">
       <div class="nm">${esc(h.name)} <span class="dim sm">${h.gender}·${h.age}</span>
         ${h.idVerified ? '<span class="verified" title="신분증·백그라운드 체크 완료">✓ 인증</span>' : ''}
+        ${availBadge(h)}
         ${isNew ? '<span class="tag-new">신규</span>' : ''}
         ${a.skilled ? `<span class="tag-skill">${esc(findCat(job.cat).name)} 경험</span>` : ''}
       </div>
@@ -381,6 +394,7 @@ function helperStrip(job, h) {
     <div class="who">
       <div class="nm">${esc(h.name)} <span class="dim sm">${h.gender}·${h.age}세</span>
         ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}
+        ${availBadge(h)}
         ${isSuspended(h.id) ? '<span class="tag-sus">활동정지</span>' : ''}</div>
       <div class="dim sm">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)}</div>
     </div>
@@ -1150,7 +1164,8 @@ function showHelper(id) {
       <div class="hp-id">
         <div class="hp-name">${esc(h.name)} <span class="dim">${h.gender}·${h.age}세</span></div>
         <div class="hp-badges">${suspended ? `<span class="tier-badge susp">🚫 활동정지</span>` : tierBadge(tier)}
-          ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}</div>
+          ${h.idVerified ? '<span class="verified">✓ 신원확인</span>' : ''}
+          ${availBadge(h)}</div>
         <div class="dim sm mt4">⭐ ${h.rating} · 누적 ${h.jobs}건 · ${esc(h.vehicle)} · ${esc(h.joined)} 가입</div>
       </div>
     </div>

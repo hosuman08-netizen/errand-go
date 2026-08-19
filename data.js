@@ -176,43 +176,61 @@ const HELPERS = [
     speedKmH: 18, vehicle: '🛵 오토바이', cats: ['delivery', 'wait', 'etc'],
     idVerified: true, bgCheck: '2026-05-12 통과', quiz: 96, joined: '2024-08',
     latOff: 0.006, lngOff: -0.004, bidFactor: 0.95, respondSec: 6,
+    availFrom: 14, availTo: 18,
     intro: '3년째 퀵 배송. 무거운 것도 편하게 맡기세요.' },
   { id: 'h2', name: '서연', avatar: '👩🏻', gender: '여', age: 27, rating: 4.8, jobs: 156,
     speedKmH: 5, vehicle: '🚶 도보', cats: ['clean', 'pet', 'wait'],
     idVerified: true, bgCheck: '2026-04-02 통과', quiz: 92, joined: '2025-01',
     latOff: -0.003, lngOff: 0.005, bidFactor: 1.05, respondSec: 9,
+    availFrom: 9, availTo: 13,
     intro: '정리수납 자격증 보유. 꼼꼼하게 합니다.' },
   { id: 'h3', name: '지호', avatar: '🧑🏻‍🦱', gender: '남', age: 24, rating: 5.0, jobs: 89,
     speedKmH: 22, vehicle: '🚲 자전거', cats: ['delivery', 'pest', 'etc'],
     idVerified: true, bgCheck: '2026-06-20 통과', quiz: 88, joined: '2025-09',
     latOff: 0.009, lngOff: 0.007, bidFactor: 0.88, respondSec: 4,
+    availFrom: 16, availTo: 21,
     intro: '신규지만 빠릅니다. 벌레 무서워하지 않아요.' },
   { id: 'h4', name: '하은', avatar: '👩🏻‍🦰', gender: '여', age: 35, rating: 4.7, jobs: 312,
     speedKmH: 30, vehicle: '🚗 승용차', cats: ['move', 'clean', 'assemble'],
     idVerified: true, bgCheck: '2026-03-18 통과', quiz: 99, joined: '2023-11',
     latOff: -0.008, lngOff: -0.006, bidFactor: 1.12, respondSec: 12,
+    availFrom: 10, availTo: 16,
     intro: '차량 보유. 이사·운반 300건 이상 수행.' },
   { id: 'h5', name: '도윤', avatar: '🧔🏻', gender: '남', age: 42, rating: 4.95, jobs: 47,
     speedKmH: 6, vehicle: '🚶 도보', cats: ['assemble', 'pest', 'move'],
     idVerified: true, bgCheck: '2026-07-01 통과', quiz: 94, joined: '2026-05',
     latOff: 0.004, lngOff: 0.003, bidFactor: 1.0, respondSec: 15,
+    availFrom: 13, availTo: 17,
     intro: '가구 조립 전문. 공구 직접 지참합니다.' },
   { id: 'h6', name: '수아', avatar: '👩🏻‍🦱', gender: '여', age: 29, rating: 4.6, jobs: 128,
     speedKmH: 16, vehicle: '🛵 오토바이', cats: ['delivery', 'pet', 'clean'],
     idVerified: true, bgCheck: '2026-05-30 통과', quiz: 90, joined: '2025-03',
     latOff: -0.011, lngOff: 0.009, bidFactor: 0.92, respondSec: 8,
+    availFrom: 8, availTo: 12,
     intro: '반려견 2마리 키웁니다. 펫 심부름 자신 있어요.' },
   { id: 'h7', name: '준서', avatar: '🧑🏻‍🦲', gender: '남', age: 38, rating: 4.4, jobs: 73,
     speedKmH: 25, vehicle: '🚗 승용차', cats: ['move', 'wait', 'etc'],
     idVerified: true, bgCheck: '2026-02-11 통과', quiz: 85, joined: '2025-06',
     latOff: 0.013, lngOff: -0.010, bidFactor: 1.18, respondSec: 18,
+    availFrom: 18, availTo: 22,
     intro: '대형 차량 운행. 큰 짐 문의 주세요.' },
   { id: 'h8', name: '예린', avatar: '👩🏻', gender: '여', age: 23, rating: 4.85, jobs: 31,
     speedKmH: 5, vehicle: '🚶 도보', cats: ['wait', 'clean', 'pet'],
     idVerified: true, bgCheck: '2026-07-08 통과', quiz: 91, joined: '2026-06',
     latOff: -0.005, lngOff: -0.012, bidFactor: 0.85, respondSec: 5,
+    availFrom: 14, availTo: 19,
     intro: '신규 헬퍼입니다. 성실하게 하겠습니다.' },
 ];
+/* GOLD50 TOP2: 당일 가용창 — 시드 스케줄. 실시간 GPS 아님. 기기 시계로 창만 대조. */
+function helperAvailWin(h) {
+  const a = h.availFrom, b = h.availTo;
+  return { from: a, to: b, label: String(a).padStart(2, '0') + '–' + String(b).padStart(2, '0') };
+}
+function helperAvailNow(h) {
+  const now = new Date();
+  const hh = now.getHours() + now.getMinutes() / 60;
+  return hh >= h.availFrom && hh < h.availTo;
+}
 function findHelper(id) { return HELPERS.find(h => h.id === id) || null; }
 
 /* 신규 헬퍼 콜드스타트: 후보 목록에 고참과 신규를 섞어 노출한다(TaskRabbit 방식).
