@@ -191,6 +191,17 @@ function afterRender() {
   });
   const sigCanvas = document.querySelector('canvas[data-sig]');
   if (sigCanvas) initSignaturePad(sigCanvas);
+  bindDongHideCatsFoldEsc();
+}
+function bindDongHideCatsFoldEsc() {
+  const badge = document.getElementById('dongHideCatsFold');
+  if (!badge) return;
+  badge.onkeydown = function (ev) {
+    if (ev.key === 'Escape' || ev.key === 'Esc') {
+      ev.preventDefault();
+      try { if (badge.focus) badge.focus(); } catch (e) {}
+    }
+  };
 }
 
 /* ============================================================
