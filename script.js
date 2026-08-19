@@ -316,6 +316,7 @@ function unfoldDongHideCats(ev) {
   render();
   const first = document.querySelector('#dongHideCats button.chip');
   if (first && first.focus) first.focus();
+  if (first && first.scrollIntoView) first.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
