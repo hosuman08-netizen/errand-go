@@ -322,6 +322,10 @@ function toggleDongHideCatsFold() {
   try { localStorage.setItem('p7_dong_hide_cats_fold', next ? '1' : '0'); } catch (e) {}
   ui.dongHideCatsFold = next;
   render();
+  if (next) {
+    const badge = document.getElementById('dongHideCatsFold');
+    try { if (badge && badge.focus) badge.focus(); } catch (e2) {}
+  }
 }
 function unfoldDongHideCats(ev) {
   if (ev) { ev.preventDefault(); ev.stopPropagation(); }
