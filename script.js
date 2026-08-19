@@ -19,6 +19,7 @@ const ui = {
   reviewsOpen: false,     // 후기 아코디언 펼침
   dongCat: 'all',         // 동네 피드 칩
   dongShowHidden: false,  // 숨긴 시드 글 보기
+  dongHideCat: '',        // 숨김 카테고리 칩
 };
 
 
@@ -263,24 +264,49 @@ function toggleDongHide(id) {
   } catch (e) {}
   render();
 }
-function setDongShowHidden(on) { ui.dongShowHidden = !!on; render(); }
+function setDongShowHidden(on) { ui.dongShowHidden = !!on; if (!on) ui.dongHideCat = ''; render(); }
 function unhideAllDong() {
   try { localStorage.setItem('p7_dong_hide', '[]'); } catch (e) {}
   ui.dongShowHidden = false;
+  ui.dongHideCat = '';
+  render();
+}
+function dongHideCatCounts() {
+  const hide = getDongHide();
+  const counts = {};
+  DONG_FEED.forEach(x => {
+    if (hide.indexOf(x.id) >= 0) counts[x.cat] = (counts[x.cat] || 0) + 1;
+  });
+  return counts;
+}
+function setDongHideCat(id) {
+  ui.dongHideCat = ui.dongHideCat === id ? '' : id;
+  if (ui.dongHideCat) ui.dongShowHidden = true;
   render();
 }
 function dongFeedHtml() {
   const cat = ui.dongCat || 'all';
   const pin = getDongPin();
   const hide = getDongHide();
-  const showH = !!ui.dongShowHidden;
-  const rows = DONG_FEED.filter(x => cat === 'all' || x.cat === cat)
-    .filter(x => showH || hide.indexOf(x.id) < 0)
+  const hideCat = ui.dongHideCat || '';
+  const showH = !!ui.dongShowHidden || !!hideCat;
+  const hideCounts = dongHideCatCounts();
+  const rows = DONG_FEED.filter(x => {
+    const hid = hide.indexOf(x.id) >= 0;
+    if (hideCat) return hid && x.cat === hideCat;
+    return (cat === 'all' || x.cat === cat) && (showH || !hid);
+  })
     .slice()
     .sort((a, b) => (a.id === pin ? -1 : b.id === pin ? 1 : 0));
   const chips = [{ id: 'all', label: '전체' }].concat(DONG_FEED_CHIPS).map(c =>
     `<button type="button" class="chip${cat === c.id ? ' on' : ''}" onclick="setDongCat('${c.id}')">${esc(c.label)}</button>`
   ).join('');
+  const hideCatChips = hide.length
+    ? `<div class="sub-chips" id="dongHideCats">` +
+      DONG_FEED_CHIPS.filter(c => hideCounts[c.id]).map(c =>
+        `<button type="button" class="chip${hideCat === c.id ? ' on' : ''}" id="dongHideCat-${c.id}" onclick="setDongHideCat('${c.id}')">${esc(c.label)} <b>${hideCounts[c.id]}</b></button>`
+      ).join('') + `</div>`
+    : '';
   const list = rows.map(x => {
     const c = findCat(x.cat);
     const on = x.id === pin;
@@ -299,12 +325,13 @@ function dongFeedHtml() {
     </div>`;
   }).join('');
   const hideBar = hide.length
-    ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH ? 'false' : 'true'})">${showH ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
+    ? `<button type="button" class="mini" id="dongHideToggle" onclick="setDongShowHidden(${showH && !hideCat ? 'false' : 'true'})">${showH && !hideCat ? '숨긴 글 접기' : '숨긴 글 ' + hide.length}</button>`
       + `<button type="button" class="mini" id="dongUnhideAll" onclick="unhideAllDong()">전부 되돌리기</button>`
     : '';
   return `<section class="card dong-feed" id="dongFeed">
     <div class="sec-title">우리 동 최근 심부름 <span class="chip static" id="dongHideChip">숨김 <b>${hide.length}</b></span></div>
     <div class="sub-chips">${chips}</div>
+    ${hideCatChips}
     ${list || '<div class="dim sm">이 칩에 시드 글이 없어요.</div>'}
     ${hideBar}
     <div class="dim sm">가상 시드 · 실매칭·실결제 아님. 견적 숫자 없음 · 입찰 공식 불변. 핀·숨김은 이 기기만.</div>

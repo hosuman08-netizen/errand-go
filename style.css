@@ -181,6 +181,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--g
 .week-card { border-color: rgba(197,164,110,.28); }
 .week-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
 .dong-feed { margin-top: 12px; }
+#dongHideCats { margin-top: 4px; }
 .dong-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 10px 0; font-size: 13px; }
 .dong-row.pinned { border-left: 2px solid var(--gold); padding-left: 8px; }
 .dong-row.hidden-row { opacity: .45; }
