@@ -199,6 +199,11 @@ function bindDongHideCatsFoldEsc() {
   badge.onkeydown = function (ev) {
     if (ev.key === 'Escape' || ev.key === 'Esc') {
       ev.preventDefault();
+      ev.stopPropagation();
+      if (getDongHideCatsFold()) {
+        try { if (badge.focus) badge.focus(); } catch (e) {}
+        return;
+      }
       try { if (badge.focus) badge.focus(); } catch (e) {}
     }
   };
